@@ -255,7 +255,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                     </label>
                 </div>
 
-                <!-- First Name and Last Name (Surname) -->
+                <!-- First Name and Last Name -->
                 <div class="two-cols">
                     <div class="input-box">
                         <i class="fa-solid fa-user"></i>
@@ -263,19 +263,13 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                     </div>
                     <div class="input-box">
                         <i class="fa-solid fa-signature"></i>
-                        <input type="text" name="last_name" id="lastNameInput" placeholder="Last Name (Surname)" value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" required>
+                        <input type="text" name="last_name" id="lastNameInput" placeholder="Last Name" value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" required>
                     </div>
                 </div>
 
                 <div class="input-box">
                     <i class="fa-solid fa-envelope"></i>
                     <input type="email" name="email" placeholder="Email Address" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
-                </div>
-
-                <!-- Parent Info Alert -->
-                <div class="parent-info-alert" id="parentInfoAlert">
-                    <i class="fa-solid fa-circle-info me-1"></i>
-                    <strong>Parent Account Notice:</strong> Your account will be linked with any student carrying the surname <strong id="surnameBadge">"[Last Name]"</strong> to display their attendance and reports.
                 </div>
 
                 <!-- Course / Subject Selection for Student & Teacher -->
@@ -303,11 +297,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                 <div class="input-box">
                     <i class="fa-solid fa-lock"></i>
                     <input type="password" id="reg_password" name="password" placeholder="Create Password" required>
-                    <i class="fa-solid fa-eye-slash" id="toggleRegPassword"></i>
+                    <i class="fa-solid fa-eye-slash" id="toggleRegPassword" style="left:auto!important;right:18px!important;cursor:pointer;"></i>
                 </div>
 
                 <div class="input-box">
-                    <i class="fa-solid fa-lock-keyhole"></i>
+                    <i class="fa-solid fa-lock"></i>
                     <input type="password" id="reg_confirm" name="confirm_password" placeholder="Confirm Password" required>
                 </div>
 
@@ -337,9 +331,6 @@ const courseIcon        = document.getElementById('courseIcon');
 const defaultOption     = document.getElementById('defaultOption');
 const customCourseBox   = document.getElementById('customCourseBox');
 const customCourseInput = document.getElementById('customCourseInput');
-const parentInfoAlert   = document.getElementById('parentInfoAlert');
-const lastNameInput     = document.getElementById('lastNameInput');
-const surnameBadge      = document.getElementById('surnameBadge');
 
 if(togglePass && passInput) {
     togglePass.addEventListener('click', () => {
@@ -350,32 +341,18 @@ if(togglePass && passInput) {
     });
 }
 
-function updateSurnameBadge() {
-    if(surnameBadge && lastNameInput) {
-        surnameBadge.innerText = lastNameInput.value.trim() ? '"' + lastNameInput.value.trim() + '"' : '"[Last Name]"';
-    }
-}
-
-if(lastNameInput) {
-    lastNameInput.addEventListener('input', updateSurnameBadge);
-}
-
 function updateCourseRoleLabels() {
     if(roleParent && roleParent.checked) {
         if(courseWrapper) courseWrapper.style.display = 'none';
         if(courseSelect) courseSelect.required = false;
-        if(parentInfoAlert) parentInfoAlert.style.display = 'block';
-        updateSurnameBadge();
     } else if(roleTeacher && roleTeacher.checked) {
         if(courseWrapper) courseWrapper.style.display = 'block';
-        if(parentInfoAlert) parentInfoAlert.style.display = 'none';
         if(courseLabel) courseLabel.innerText = 'Which subject / course are you going to teach?';
         if(defaultOption) defaultOption.innerText = '-- Choose Subject / Course to Teach --';
         if(courseIcon) courseIcon.className = 'fa-solid fa-chalkboard-user';
         if(courseSelect) courseSelect.required = true;
     } else {
         if(courseWrapper) courseWrapper.style.display = 'block';
-        if(parentInfoAlert) parentInfoAlert.style.display = 'none';
         if(courseLabel) courseLabel.innerText = 'What course are you enrolling in?';
         if(defaultOption) defaultOption.innerText = '-- Choose Enrolling Course --';
         if(courseIcon) courseIcon.className = 'fa-solid fa-graduation-cap';

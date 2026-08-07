@@ -519,7 +519,10 @@ color:#2563EB;
 
 
 
-.input-box #togglePassword{
+.input-box #togglePassword,
+.input-box #toggleRegPassword,
+.input-box .fa-eye-slash,
+.input-box .fa-eye{
 
 
 left:auto;

@@ -50,16 +50,20 @@ $conn->set_charset("utf8mb4");
 $tables = [
     "CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        first_name VARCHAR(50),
+        last_name VARCHAR(50),
         full_name VARCHAR(100) NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
-        role ENUM('admin','teacher','student') NOT NULL DEFAULT 'student',
+        role ENUM('admin','teacher','student','parent') NOT NULL DEFAULT 'student',
         status VARCHAR(20) DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
 
     "CREATE TABLE IF NOT EXISTS students (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        first_name VARCHAR(50),
+        last_name VARCHAR(50),
         full_name VARCHAR(100) NOT NULL,
         email VARCHAR(100) NOT NULL,
         phone VARCHAR(20),
@@ -72,11 +76,24 @@ $tables = [
 
     "CREATE TABLE IF NOT EXISTS teachers (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        first_name VARCHAR(50),
+        last_name VARCHAR(50),
         full_name VARCHAR(100) NOT NULL,
         email VARCHAR(100) NOT NULL,
         phone VARCHAR(20),
         subject VARCHAR(100),
         qualification VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+    "CREATE TABLE IF NOT EXISTS parents (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        first_name VARCHAR(50),
+        last_name VARCHAR(50),
+        full_name VARCHAR(100) NOT NULL,
+        email VARCHAR(100) NOT NULL,
+        phone VARCHAR(20),
+        address TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
 
@@ -157,6 +174,21 @@ foreach($tables as $sql) {
     mysqli_query($conn, $sql);
 }
 
+// Auto-migration checks for existing databases
+@mysqli_query($conn, "ALTER TABLE users MODIFY COLUMN role ENUM('admin','teacher','student','parent') NOT NULL DEFAULT 'student'");
+@mysqli_query($conn, "ALTER TABLE users ADD COLUMN first_name VARCHAR(50) AFTER id");
+@mysqli_query($conn, "ALTER TABLE users ADD COLUMN last_name VARCHAR(50) AFTER first_name");
+@mysqli_query($conn, "ALTER TABLE students ADD COLUMN first_name VARCHAR(50) AFTER id");
+@mysqli_query($conn, "ALTER TABLE students ADD COLUMN last_name VARCHAR(50) AFTER first_name");
+@mysqli_query($conn, "ALTER TABLE teachers ADD COLUMN first_name VARCHAR(50) AFTER id");
+@mysqli_query($conn, "ALTER TABLE teachers ADD COLUMN last_name VARCHAR(50) AFTER first_name");
+
+// Update existing student records last_name if empty
+@mysqli_query($conn, "UPDATE students SET first_name = 'Alex', last_name = 'Rivera' WHERE full_name = 'Alex Rivera' AND (last_name IS NULL OR last_name = '')");
+@mysqli_query($conn, "UPDATE students SET first_name = 'Sophia', last_name = 'Chen' WHERE full_name = 'Sophia Chen' AND (last_name IS NULL OR last_name = '')");
+@mysqli_query($conn, "UPDATE students SET first_name = 'Marcus', last_name = 'Webb' WHERE full_name = 'Marcus Webb' AND (last_name IS NULL OR last_name = '')");
+@mysqli_query($conn, "UPDATE students SET first_name = 'Priya', last_name = 'Patel' WHERE full_name = 'Priya Patel' AND (last_name IS NULL OR last_name = '')");
+
 // Seed default users if empty
 $userCheck = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM users");
 if($userCheck) {
@@ -165,12 +197,29 @@ if($userCheck) {
         $adminPass = password_hash('admin123', PASSWORD_DEFAULT);
         $teacherPass = password_hash('teacher123', PASSWORD_DEFAULT);
         $studentPass = password_hash('student123', PASSWORD_DEFAULT);
+        $parentPass = password_hash('parent123', PASSWORD_DEFAULT);
 
-        mysqli_query($conn, "INSERT INTO users (full_name, email, password, role, status) VALUES 
-            ('Administrator', 'admin@crm.com', '$adminPass', 'admin', 'Active'),
-            ('Dr. Sarah Jenkins', 'teacher@crm.com', '$teacherPass', 'teacher', 'Active'),
-            ('Alex Rivera', 'student@crm.com', '$studentPass', 'student', 'Active')");
+        mysqli_query($conn, "INSERT INTO users (first_name, last_name, full_name, email, password, role, status) VALUES 
+            ('Admin', 'User', 'Administrator', 'admin@crm.com', '$adminPass', 'admin', 'Active'),
+            ('Sarah', 'Jenkins', 'Dr. Sarah Jenkins', 'teacher@crm.com', '$teacherPass', 'teacher', 'Active'),
+            ('Alex', 'Rivera', 'Alex Rivera', 'student@crm.com', '$studentPass', 'student', 'Active'),
+            ('Carlos', 'Rivera', 'Carlos Rivera', 'parent@crm.com', '$parentPass', 'parent', 'Active')");
+    } else {
+        // Ensure default parent user exists if not already present
+        $parentCheck = mysqli_query($conn, "SELECT id FROM users WHERE email = 'parent@crm.com'");
+        if($parentCheck && mysqli_num_rows($parentCheck) == 0) {
+            $parentPass = password_hash('parent123', PASSWORD_DEFAULT);
+            mysqli_query($conn, "INSERT INTO users (first_name, last_name, full_name, email, password, role, status) VALUES 
+                ('Carlos', 'Rivera', 'Carlos Rivera', 'parent@crm.com', '$parentPass', 'parent', 'Active')");
+        }
     }
+}
+
+// Seed default parent profile if empty
+$prtCheck = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM parents");
+if($prtCheck && mysqli_fetch_assoc($prtCheck)['cnt'] == 0) {
+    mysqli_query($conn, "INSERT INTO parents (first_name, last_name, full_name, email, phone, address) VALUES 
+        ('Carlos', 'Rivera', 'Carlos Rivera', 'parent@crm.com', '+1 555-0199', '123 Campus Way, Suite 4B')");
 }
 
 // Seed default courses if empty

@@ -12,6 +12,9 @@ if(isset($_SESSION['user']) && isset($_SESSION['role'])) {
     } elseif($_SESSION['role'] == "student") {
         header("Location: student/dashboard.php");
         exit();
+    } elseif($_SESSION['role'] == "parent") {
+        header("Location: parent/dashboard.php");
+        exit();
     }
 }
 
@@ -31,7 +34,9 @@ if(empty($availableCourses)) {
 }
 
 if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
-    $full_name     = trim($_POST['full_name'] ?? '');
+    $first_name    = trim($_POST['first_name'] ?? '');
+    $last_name     = trim($_POST['last_name'] ?? '');
+    $full_name     = trim($first_name . ' ' . $last_name);
     $email         = trim($_POST['email'] ?? '');
     $password      = $_POST['password'] ?? '';
     $confirm       = $_POST['confirm_password'] ?? '';
@@ -41,11 +46,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 
     $course = ($selectedCourse === 'Other' && !empty($customCourse)) ? $customCourse : $selectedCourse;
 
-    if(empty($full_name) || empty($email) || empty($password)) {
+    if(empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
         $error = "Please fill in all required fields.";
     } elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Invalid email address.";
-    } elseif(empty($course)) {
+    } elseif(($role === 'student' || $role === 'teacher') && empty($course)) {
         $error = ($role === 'teacher') ? "Please select or specify the subject/course you are going to teach." : "Please select or specify the course you are enrolling in.";
     } elseif($password !== $confirm) {
         $error = "Passwords do not match.";
@@ -64,47 +69,58 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
             // Insert into users table
-            $insUser = $conn->prepare("INSERT INTO users (full_name, email, password, role, status) VALUES (?, ?, ?, ?, 'Active')");
-            $insUser->bind_param("ssss", $full_name, $email, $hashedPassword, $role);
+            $insUser = $conn->prepare("INSERT INTO users (first_name, last_name, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?, 'Active')");
+            $insUser->bind_param("ssssss", $first_name, $last_name, $full_name, $email, $hashedPassword, $role);
 
             if($insUser->execute()) {
                 $user_id = $insUser->insert_id;
 
                 // Create profile based on role
                 if($role === 'teacher') {
-                    // Teacher profile with assigned subject/course
                     $tchChk = $conn->prepare("SELECT id FROM teachers WHERE email = ?");
                     $tchChk->bind_param("s", $email);
                     $tchChk->execute();
                     if($tchChk->get_result()->num_rows === 0) {
-                        $insTch = $conn->prepare("INSERT INTO teachers (full_name, email, phone, subject, qualification) VALUES (?, ?, '', ?, '')");
-                        $insTch->bind_param("sss", $full_name, $email, $course);
+                        $insTch = $conn->prepare("INSERT INTO teachers (first_name, last_name, full_name, email, phone, subject, qualification) VALUES (?, ?, ?, ?, '', ?, '')");
+                        $insTch->bind_param("sssss", $first_name, $last_name, $full_name, $email, $course);
                         $insTch->execute();
                     }
 
-                    // Optionally link teacher to course in courses table
+                    // Link teacher to course if unassigned
                     $updCourse = $conn->prepare("UPDATE courses SET teacher = ? WHERE course_name = ? AND (teacher IS NULL OR teacher = '' OR teacher = 'Unassigned')");
                     if($updCourse) {
                         $updCourse->bind_param("ss", $full_name, $course);
                         $updCourse->execute();
                     }
 
-                    $msgText = "Registration successful! Registered to teach " . addslashes($course) . ". Please login to continue.";
+                    $msgText = "Registration successful as Teacher! Assigned to subject " . $course . ". Please login to continue.";
+                } elseif($role === 'parent') {
+                    // Parent profile creation
+                    $prtChk = $conn->prepare("SELECT id FROM parents WHERE email = ?");
+                    $prtChk->bind_param("s", $email);
+                    $prtChk->execute();
+                    if($prtChk->get_result()->num_rows === 0) {
+                        $insPrt = $conn->prepare("INSERT INTO parents (first_name, last_name, full_name, email, phone, address) VALUES (?, ?, ?, ?, '', '')");
+                        $insPrt->bind_param("ssss", $first_name, $last_name, $full_name, $email);
+                        $insPrt->execute();
+                    }
+
+                    $msgText = "Registration successful as Parent! Account linked with surname '" . $last_name . "'. Please login to view your child's portal.";
                 } else {
                     // Student profile with selected course
                     $stdChk = $conn->prepare("SELECT id FROM students WHERE email = ?");
                     $stdChk->bind_param("s", $email);
                     $stdChk->execute();
                     if($stdChk->get_result()->num_rows === 0) {
-                        $insStd = $conn->prepare("INSERT INTO students (full_name, email, phone, gender, date_of_birth, course, address) VALUES (?, ?, '', '', NULL, ?, '')");
-                        $insStd->bind_param("sss", $full_name, $email, $course);
+                        $insStd = $conn->prepare("INSERT INTO students (first_name, last_name, full_name, email, phone, gender, date_of_birth, course, address) VALUES (?, ?, ?, ?, '', '', NULL, ?, '')");
+                        $insStd->bind_param("sssss", $first_name, $last_name, $full_name, $email, $course);
                         $insStd->execute();
                     }
-                    $msgText = "Registration successful! Enrolled in " . addslashes($course) . ". Please login to continue.";
+                    $msgText = "Registration successful as Student! Enrolled in " . $course . ". Please login to continue.";
                 }
 
                 echo "<script>
-                    alert('" . $msgText . "');
+                    alert(" . json_encode($msgText) . ");
                     window.location.href = 'login.php';
                 </script>";
                 exit();
@@ -128,19 +144,19 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 <style>
 .role-select-box {
     display: flex;
-    gap: 15px;
+    gap: 10px;
     margin-bottom: 18px;
 }
 .role-option {
     flex: 1;
     border: 1px solid #CBD5E1;
-    border-radius: 14px;
-    padding: 12px;
+    border-radius: 12px;
+    padding: 10px 8px;
     text-align: center;
     cursor: pointer;
     background: #F8FAFC;
     transition: 0.3s;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: #0F172A;
 }
@@ -170,6 +186,23 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
     background: white;
     box-shadow: 0 0 0 4px rgba(37,99,235,.12);
 }
+.two-cols {
+    display: flex;
+    gap: 12px;
+}
+.two-cols .input-box {
+    flex: 1;
+}
+.parent-info-alert {
+    background: #EFF6FF;
+    border: 1px solid #BFDBFE;
+    color: #1E40AF;
+    font-size: 13px;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    display: none;
+}
 </style>
 </head>
 <body>
@@ -183,10 +216,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                 <i class="fa-solid fa-building-columns"></i>
             </div>
             <h1>Smart Campus <span>CRM</span></h1>
-            <p>Join Smart Campus CRM today. Choose your course or subject and access a seamless educational portal.</p>
+            <p>Join Smart Campus CRM today. Select your account type—Student, Parent, or Teacher—and access an integrated educational portal.</p>
             <div class="features">
                 <div><i class="fa-solid fa-graduation-cap"></i> Student & Teacher Course Assignment</div>
-                <div><i class="fa-solid fa-user-plus"></i> Clean Profile Setup</div>
+                <div><i class="fa-solid fa-users"></i> Automatic Parent-Child Linking by Surname</div>
                 <div><i class="fa-solid fa-shield-halved"></i> Secure Account Creation</div>
             </div>
         </div>
@@ -194,9 +227,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 
     <!-- REGISTER SECTION -->
     <div class="login-section">
-        <div class="login-card" style="width:460px;">
+        <div class="login-card" style="width:480px;">
             <h2>Create Account ✨</h2>
-            <p>Register as a Student or Teacher</p>
+            <p>Register as a Student, Parent, or Teacher</p>
 
             <?php if(!empty($error)): ?>
                 <div class="alert alert-danger py-2 px-3 mb-3 rounded-3" style="font-size:14px;">
@@ -206,21 +239,15 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 
             <form action="register.php" method="POST">
                 
-                <div class="input-box">
-                    <i class="fa-solid fa-user"></i>
-                    <input type="text" name="full_name" placeholder="Full Name" value="<?= htmlspecialchars($_POST['full_name'] ?? '') ?>" required>
-                </div>
-
-                <div class="input-box">
-                    <i class="fa-solid fa-envelope"></i>
-                    <input type="email" name="email" placeholder="Email Address" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
-                </div>
-
-                <label class="form-label text-muted small mb-1 fw-medium">Select Account Role:</label>
+                <label class="form-label text-muted small mb-1 fw-medium">I am signing up as:</label>
                 <div class="role-select-box">
                     <label class="role-option">
                         <input type="radio" name="role" value="student" id="roleStudent" <?= ($_POST['role'] ?? 'student') === 'student' ? 'checked' : '' ?>>
-                        <i class="fa-solid fa-user-graduate me-1"></i> Student
+                        <i class="fa-solid fa-user-graduate me-1"></i> Student / Child
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role" value="parent" id="roleParent" <?= ($_POST['role'] ?? '') === 'parent' ? 'checked' : '' ?>>
+                        <i class="fa-solid fa-hands-holding-child me-1"></i> Parent
                     </label>
                     <label class="role-option">
                         <input type="radio" name="role" value="teacher" id="roleTeacher" <?= ($_POST['role'] ?? '') === 'teacher' ? 'checked' : '' ?>>
@@ -228,12 +255,35 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                     </label>
                 </div>
 
+                <!-- First Name and Last Name (Surname) -->
+                <div class="two-cols">
+                    <div class="input-box">
+                        <i class="fa-solid fa-user"></i>
+                        <input type="text" name="first_name" id="firstNameInput" placeholder="First Name" value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>" required>
+                    </div>
+                    <div class="input-box">
+                        <i class="fa-solid fa-signature"></i>
+                        <input type="text" name="last_name" id="lastNameInput" placeholder="Last Name (Surname)" value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" required>
+                    </div>
+                </div>
+
+                <div class="input-box">
+                    <i class="fa-solid fa-envelope"></i>
+                    <input type="email" name="email" placeholder="Email Address" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
+                </div>
+
+                <!-- Parent Info Alert -->
+                <div class="parent-info-alert" id="parentInfoAlert">
+                    <i class="fa-solid fa-circle-info me-1"></i>
+                    <strong>Parent Account Notice:</strong> Your account will be linked with any student carrying the surname <strong id="surnameBadge">"[Last Name]"</strong> to display their attendance and reports.
+                </div>
+
                 <!-- Course / Subject Selection for Student & Teacher -->
                 <div class="mb-3" id="courseWrapper">
                     <label class="form-label text-muted small mb-1 fw-medium" id="courseLabel">What course are you enrolling in?</label>
                     <div class="input-box" style="margin-bottom: 0;">
                         <i class="fa-solid fa-graduation-cap" id="courseIcon"></i>
-                        <select name="course" id="courseSelect" class="course-select-style" required>
+                        <select name="course" id="courseSelect" class="course-select-style">
                             <option value="" id="defaultOption">-- Choose Course / Subject --</option>
                             <?php foreach($availableCourses as $c): ?>
                                 <option value="<?= htmlspecialchars($c) ?>" <?= ($_POST['course'] ?? '') === $c ? 'selected' : '' ?>>
@@ -278,6 +328,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 const togglePass        = document.getElementById('toggleRegPassword');
 const passInput         = document.getElementById('reg_password');
 const roleStudent       = document.getElementById('roleStudent');
+const roleParent        = document.getElementById('roleParent');
 const roleTeacher       = document.getElementById('roleTeacher');
 const courseWrapper     = document.getElementById('courseWrapper');
 const courseLabel       = document.getElementById('courseLabel');
@@ -286,6 +337,9 @@ const courseIcon        = document.getElementById('courseIcon');
 const defaultOption     = document.getElementById('defaultOption');
 const customCourseBox   = document.getElementById('customCourseBox');
 const customCourseInput = document.getElementById('customCourseInput');
+const parentInfoAlert   = document.getElementById('parentInfoAlert');
+const lastNameInput     = document.getElementById('lastNameInput');
+const surnameBadge      = document.getElementById('surnameBadge');
 
 if(togglePass && passInput) {
     togglePass.addEventListener('click', () => {
@@ -296,24 +350,41 @@ if(togglePass && passInput) {
     });
 }
 
+function updateSurnameBadge() {
+    if(surnameBadge && lastNameInput) {
+        surnameBadge.innerText = lastNameInput.value.trim() ? '"' + lastNameInput.value.trim() + '"' : '"[Last Name]"';
+    }
+}
+
+if(lastNameInput) {
+    lastNameInput.addEventListener('input', updateSurnameBadge);
+}
+
 function updateCourseRoleLabels() {
-    if(roleTeacher && roleTeacher.checked) {
+    if(roleParent && roleParent.checked) {
+        if(courseWrapper) courseWrapper.style.display = 'none';
+        if(courseSelect) courseSelect.required = false;
+        if(parentInfoAlert) parentInfoAlert.style.display = 'block';
+        updateSurnameBadge();
+    } else if(roleTeacher && roleTeacher.checked) {
+        if(courseWrapper) courseWrapper.style.display = 'block';
+        if(parentInfoAlert) parentInfoAlert.style.display = 'none';
         if(courseLabel) courseLabel.innerText = 'Which subject / course are you going to teach?';
         if(defaultOption) defaultOption.innerText = '-- Choose Subject / Course to Teach --';
-        if(courseIcon) {
-            courseIcon.className = 'fa-solid fa-chalkboard-user';
-        }
+        if(courseIcon) courseIcon.className = 'fa-solid fa-chalkboard-user';
+        if(courseSelect) courseSelect.required = true;
     } else {
+        if(courseWrapper) courseWrapper.style.display = 'block';
+        if(parentInfoAlert) parentInfoAlert.style.display = 'none';
         if(courseLabel) courseLabel.innerText = 'What course are you enrolling in?';
         if(defaultOption) defaultOption.innerText = '-- Choose Enrolling Course --';
-        if(courseIcon) {
-            courseIcon.className = 'fa-solid fa-graduation-cap';
-        }
+        if(courseIcon) courseIcon.className = 'fa-solid fa-graduation-cap';
+        if(courseSelect) courseSelect.required = true;
     }
 }
 
 function checkCustomCourse() {
-    if(courseSelect && courseSelect.value === 'Other') {
+    if(courseSelect && courseSelect.value === 'Other' && courseWrapper.style.display !== 'none') {
         customCourseBox.style.display = 'block';
         if(customCourseInput) customCourseInput.required = true;
     } else {
@@ -322,11 +393,10 @@ function checkCustomCourse() {
     }
 }
 
-if(roleStudent && roleTeacher) {
-    roleStudent.addEventListener('change', updateCourseRoleLabels);
-    roleTeacher.addEventListener('change', updateCourseRoleLabels);
-    updateCourseRoleLabels();
-}
+if(roleStudent) roleStudent.addEventListener('change', updateCourseRoleLabels);
+if(roleParent) roleParent.addEventListener('change', updateCourseRoleLabels);
+if(roleTeacher) roleTeacher.addEventListener('change', updateCourseRoleLabels);
+updateCourseRoleLabels();
 
 if(courseSelect) {
     courseSelect.addEventListener('change', checkCustomCourse);

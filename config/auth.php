@@ -71,6 +71,10 @@ if(isset($_POST['login']))
             {
                 header("Location: ../student/dashboard.php");
             }
+            elseif($user['role'] == "parent")
+            {
+                header("Location: ../parent/dashboard.php");
+            }
             else
             {
                 header("Location: ../login.php");

@@ -113,6 +113,25 @@ $role = isset($_SESSION['role']) ? $_SESSION['role'] : 'admin';
         <a href="../student/profile.php" class="<?= $currentPage=='profile.php' ? 'active' : '' ?>">
             <i class="fa-solid fa-id-card"></i> My Profile
         </a>
+
+        <?php elseif($role == 'parent'): ?>
+        <span class="sidebar-label">Parent Portal</span>
+
+        <a href="../parent/dashboard.php" class="<?= $currentPage=='dashboard.php' ? 'active' : '' ?>">
+            <i class="fa-solid fa-chart-pie"></i> Child Dashboard
+        </a>
+
+        <a href="../parent/attendance.php" class="<?= $currentPage=='attendance.php' ? 'active' : '' ?>">
+            <i class="fa-solid fa-calendar-check"></i> Child Attendance
+        </a>
+
+        <a href="../parent/results.php" class="<?= $currentPage=='results.php' ? 'active' : '' ?>">
+            <i class="fa-solid fa-chart-bar"></i> Child Results
+        </a>
+
+        <a href="../parent/profile.php" class="<?= $currentPage=='profile.php' ? 'active' : '' ?>">
+            <i class="fa-solid fa-id-card"></i> My Profile
+        </a>
         <?php endif; ?>
 
     </div>

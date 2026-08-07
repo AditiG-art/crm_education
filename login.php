@@ -25,6 +25,11 @@ if(isset($_SESSION['user']) && isset($_SESSION['role']))
         header("Location:student/dashboard.php");
         exit();
     }
+    elseif($_SESSION['role']=="parent")
+    {
+        header("Location:parent/dashboard.php");
+        exit();
+    }
 
 }
 

@@ -28,8 +28,8 @@ $selectedStatus = 'Present';
 // Handle Attendance Submission directly in Teacher Profile
 if($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['mark_attendance']) || isset($_POST['student_id']))) {
     $student_id      = intval($_POST['student_id'] ?? 0);
-    $attendance_date = trim($_POST['attendance_date'] ?? '');
-    $status          = trim($_POST['status'] ?? '');
+    $attendance_date = mysqli_real_escape_string($conn, trim($_POST['attendance_date'] ?? ''));
+    $status          = mysqli_real_escape_string($conn, trim($_POST['status'] ?? ''));
 
     $selectedStudentId = $student_id;
     $selectedDate      = $attendance_date ?: date('Y-m-d');
@@ -37,39 +37,22 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['mark_attendance']) ||
 
     if($student_id > 0 && !empty($attendance_date) && !empty($status)) {
         // Check if attendance record already exists for student on this date
-        $checkStmt = $conn->prepare("SELECT id FROM attendance WHERE student_id=? AND attendance_date=?");
-        if($checkStmt) {
-            $checkStmt->bind_param("is", $student_id, $attendance_date);
-            $checkStmt->execute();
-            $existing = $checkStmt->get_result();
+        $check = mysqli_query($conn, "SELECT id FROM attendance WHERE student_id='$student_id' AND attendance_date='$attendance_date'");
 
-            if($existing && $existing->num_rows > 0) {
-                $updateStmt = $conn->prepare("UPDATE attendance SET status=? WHERE student_id=? AND attendance_date=?");
-                if($updateStmt) {
-                    $updateStmt->bind_param("sis", $status, $student_id, $attendance_date);
-                    if($updateStmt->execute()) {
-                        $attendanceMsg = "Attendance updated successfully!";
-                    } else {
-                        $attendanceErr = "Failed to update attendance: " . $updateStmt->error;
-                    }
-                } else {
-                    $attendanceErr = "Database error: " . $conn->error;
-                }
+        if($check && mysqli_num_rows($check) > 0) {
+            $upd = mysqli_query($conn, "UPDATE attendance SET status='$status' WHERE student_id='$student_id' AND attendance_date='$attendance_date'");
+            if($upd) {
+                $attendanceMsg = "Attendance updated successfully as {$status}!";
             } else {
-                $insertStmt = $conn->prepare("INSERT INTO attendance (student_id, attendance_date, status) VALUES (?, ?, ?)");
-                if($insertStmt) {
-                    $insertStmt->bind_param("iss", $student_id, $attendance_date, $status);
-                    if($insertStmt->execute()) {
-                        $attendanceMsg = "Attendance marked successfully!";
-                    } else {
-                        $attendanceErr = "Failed to mark attendance: " . $insertStmt->error;
-                    }
-                } else {
-                    $attendanceErr = "Database error: " . $conn->error;
-                }
+                $attendanceErr = "Failed to update attendance: " . mysqli_error($conn);
             }
         } else {
-            $attendanceErr = "Database error: " . $conn->error;
+            $ins = mysqli_query($conn, "INSERT INTO attendance (student_id, attendance_date, status) VALUES ('$student_id', '$attendance_date', '$status')");
+            if($ins) {
+                $attendanceMsg = "Attendance marked successfully as {$status}!";
+            } else {
+                $attendanceErr = "Failed to mark attendance: " . mysqli_error($conn);
+            }
         }
     } else {
         $attendanceErr = "Please select a student, date, and status.";

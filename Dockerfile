@@ -1,20 +1,26 @@
-# Use Nginx + PHP-FPM image for Railway
-FROM webdevops/php-nginx:8.2
+# Official PHP 8.2 with Apache
+FROM php:8.2-apache
 
-# Set Document Root to /app
-ENV WEB_DOCUMENT_ROOT=/app
-ENV WEB_DOCUMENT_INDEX=index.php
+# Fix Apache MPM conflict error (AH00534: More than one MPM loaded)
+RUN a2dismod mpm_event mpm_worker || true \
+    && a2enmod mpm_prefork
 
-# Copy project files into container
-WORKDIR /app
-COPY . /app
-
-# Ensure PHP extensions (mysqli, pdo_mysql) are installed and enabled
+# Install MySQL extensions required for database queries
 RUN docker-php-ext-install mysqli pdo pdo_mysql \
     && docker-php-ext-enable mysqli pdo_mysql
 
-# Set permissions
-RUN chown -R application:application /app
+# Enable Apache mod_rewrite for URL routing
+RUN a2enmod rewrite
 
-# Expose port 80
+# Set Apache DocumentRoot & permissions
+WORKDIR /var/www/html
+COPY . /var/www/html/
+
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
+
+# Expose Port 80
 EXPOSE 80
+
+# Run Apache in foreground
+CMD ["apache2-foreground"]

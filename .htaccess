@@ -1,17 +1,14 @@
+DirectoryIndex index.php login.php
+
 Options -Indexes +FollowSymLinks
 RewriteEngine On
-
-# Redirect root to login
-RewriteRule ^$ index.php [L]
 
 # Allow direct access to existing files and directories
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Handle PHP files
-RewriteRule ^(.+)$ $1 [L]
-
 # Security headers
-Header always set X-Content-Type-Options nosniff
-Header always set X-Frame-Options DENY
-Header always set X-XSS-Protection "1; mode=block"
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options SAMEORIGIN
+</IfModule>

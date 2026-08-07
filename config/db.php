@@ -261,6 +261,4 @@ if($annCheck && mysqli_fetch_assoc($annCheck)['cnt'] == 0) {
         ('Annual Sports Day Registration Open', 'Registrations for the Annual Sports Day are now open. Students wishing to participate in athletic events should register at the administrative office before the deadline.', 'success', 'Administrator', '$exp1'),
         ('Fee Submission Deadline Reminder', 'This is a reminder that the last date for fee submission for the current semester is approaching. Late submissions will attract a penalty as per institute policy.', 'general', 'Administrator', '$exp2')");
 }
-
-?>
 

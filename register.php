@@ -31,19 +31,22 @@ if(empty($availableCourses)) {
 }
 
 if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
-    $full_name = trim($_POST['full_name'] ?? '');
-    $email     = trim($_POST['email'] ?? '');
-    $password  = $_POST['password'] ?? '';
-    $confirm   = $_POST['confirm_password'] ?? '';
-    $role      = $_POST['role'] ?? 'student';
-    $course    = trim($_POST['course'] ?? '');
+    $full_name     = trim($_POST['full_name'] ?? '');
+    $email         = trim($_POST['email'] ?? '');
+    $password      = $_POST['password'] ?? '';
+    $confirm       = $_POST['confirm_password'] ?? '';
+    $role          = $_POST['role'] ?? 'student';
+    $selectedCourse= trim($_POST['course'] ?? '');
+    $customCourse  = trim($_POST['custom_course'] ?? '');
+
+    $course = ($selectedCourse === 'Other' && !empty($customCourse)) ? $customCourse : $selectedCourse;
 
     if(empty($full_name) || empty($email) || empty($password)) {
         $error = "Please fill in all required fields.";
     } elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Invalid email address.";
     } elseif($role === 'student' && empty($course)) {
-        $error = "Please select a course to enroll in.";
+        $error = "Please select or specify what course you are enrolling in.";
     } elseif($password !== $confirm) {
         $error = "Passwords do not match.";
     } elseif(strlen($password) < 6) {
@@ -91,7 +94,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                 }
 
                 echo "<script>
-                    alert('Registration successful! Enrolled in " . addslashes($course ?: 'CRM') . ". Please login to continue.');
+                    alert('Registration successful! Enrolled in " . addslashes($course ?: 'Course') . ". Please login to continue.');
                     window.location.href = 'login.php';
                 </script>";
                 exit();
@@ -107,7 +110,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Campus CRM | Register</title>
+<title>Smart Campus CRM | Student Registration</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -172,7 +175,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
             <h1>Smart Campus <span>CRM</span></h1>
             <p>Join Smart Campus CRM today. Select your course and access a seamless educational portal.</p>
             <div class="features">
-                <div><i class="fa-solid fa-graduation-cap"></i> Course Enrollment Included</div>
+                <div><i class="fa-solid fa-graduation-cap"></i> Student Course Enrollment</div>
                 <div><i class="fa-solid fa-user-plus"></i> Clean Profile Setup</div>
                 <div><i class="fa-solid fa-shield-halved"></i> Secure Account Creation</div>
             </div>
@@ -183,7 +186,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
     <div class="login-section">
         <div class="login-card" style="width:460px;">
             <h2>Create Account ✨</h2>
-            <p>Register for a new account & choose your course</p>
+            <p>Register as a Student or Teacher</p>
 
             <?php if(!empty($error)): ?>
                 <div class="alert alert-danger py-2 px-3 mb-3 rounded-3" style="font-size:14px;">
@@ -215,18 +218,25 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                     </label>
                 </div>
 
-                <!-- Course Selection for Students -->
+                <!-- Course Selection for Student -->
                 <div class="mb-3" id="courseWrapper">
+                    <label class="form-label text-muted small mb-1 fw-medium" id="courseLabel">What course are you enrolling in?</label>
                     <div class="input-box" style="margin-bottom: 0;">
                         <i class="fa-solid fa-graduation-cap"></i>
                         <select name="course" id="courseSelect" class="course-select-style">
-                            <option value="">-- Select Course to Enroll --</option>
+                            <option value="">-- Choose Enrolling Course --</option>
                             <?php foreach($availableCourses as $c): ?>
                                 <option value="<?= htmlspecialchars($c) ?>" <?= ($_POST['course'] ?? '') === $c ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($c) ?>
                                 </option>
                             <?php endforeach; ?>
+                            <option value="Other" <?= ($_POST['course'] ?? '') === 'Other' ? 'selected' : '' ?>>Other / Custom Course</option>
                         </select>
+                    </div>
+
+                    <div class="input-box mt-2" id="customCourseBox" style="display: none; margin-bottom: 0;">
+                        <i class="fa-solid fa-book"></i>
+                        <input type="text" name="custom_course" id="customCourseInput" placeholder="Specify Course Name" value="<?= htmlspecialchars($_POST['custom_course'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -255,12 +265,14 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 </div>
 
 <script>
-const togglePass    = document.getElementById('toggleRegPassword');
-const passInput     = document.getElementById('reg_password');
-const roleStudent   = document.getElementById('roleStudent');
-const roleTeacher   = document.getElementById('roleTeacher');
-const courseWrapper = document.getElementById('courseWrapper');
-const courseSelect  = document.getElementById('courseSelect');
+const togglePass        = document.getElementById('toggleRegPassword');
+const passInput         = document.getElementById('reg_password');
+const roleStudent       = document.getElementById('roleStudent');
+const roleTeacher       = document.getElementById('roleTeacher');
+const courseWrapper     = document.getElementById('courseWrapper');
+const courseSelect      = document.getElementById('courseSelect');
+const customCourseBox   = document.getElementById('customCourseBox');
+const customCourseInput = document.getElementById('customCourseInput');
 
 if(togglePass && passInput) {
     togglePass.addEventListener('click', () => {
@@ -281,10 +293,25 @@ function updateCourseVisibility() {
     }
 }
 
+function checkCustomCourse() {
+    if(courseSelect && courseSelect.value === 'Other') {
+        customCourseBox.style.display = 'block';
+        if(customCourseInput) customCourseInput.required = true;
+    } else {
+        customCourseBox.style.display = 'none';
+        if(customCourseInput) customCourseInput.required = false;
+    }
+}
+
 if(roleStudent && roleTeacher) {
     roleStudent.addEventListener('change', updateCourseVisibility);
     roleTeacher.addEventListener('change', updateCourseVisibility);
     updateCourseVisibility();
+}
+
+if(courseSelect) {
+    courseSelect.addEventListener('change', checkCustomCourse);
+    checkCustomCourse();
 }
 </script>
 

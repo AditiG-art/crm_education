@@ -44,7 +44,7 @@ if(isset($_SESSION['user']) && isset($_SESSION['role']))
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Smart Campus CRM | Login</title>
+<title>Smart Campus | Login</title>
 
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -85,7 +85,6 @@ if(isset($_SESSION['user']) && isset($_SESSION['role']))
 
 <h1>
 Smart Campus
-<span>CRM</span>
 </h1>
 
 

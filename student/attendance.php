@@ -54,7 +54,7 @@ $percentage = $total > 0 ? round(($present / $total) * 100) : 100;
 
 <body>
 
-<?php include "../includes/student_sidebar.php"; ?>
+<?php include "../includes/sidebar.php"; ?>
 
 <div class="main">
 

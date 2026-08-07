@@ -136,7 +136,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Campus CRM | Registration</title>
+<title>Smart Campus | Registration</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -215,8 +215,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
             <div class="brand-logo">
                 <i class="fa-solid fa-building-columns"></i>
             </div>
-            <h1>Smart Campus <span>CRM</span></h1>
-            <p>Join Smart Campus CRM today. Select your account type—Student, Parent, or Teacher—and access an integrated educational portal.</p>
+            <h1>Smart Campus</h1>
+            <p>Join Smart Campus today. Select your account type—Student, Parent, or Teacher—and access an integrated educational portal.</p>
             <div class="features">
                 <div><i class="fa-solid fa-graduation-cap"></i> Student & Teacher Course Assignment</div>
                 <div><i class="fa-solid fa-users"></i> Automatic Parent-Child Linking by Surname</div>

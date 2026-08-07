@@ -11,9 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ── Mobile Sidebar ─────────────────────────── */
 function initMobileSidebar() {
-    const sidebar = document.querySelector('.sidebar') || document.getElementById('mainSidebar');
-    if (!sidebar) return;
-
     // Ensure overlay exists
     let overlay = document.querySelector('.sidebar-overlay');
     if (!overlay) {
@@ -23,25 +20,27 @@ function initMobileSidebar() {
     }
 
     function openSidebar() {
-        sidebar.classList.add('open');
-        overlay.classList.add('active');
+        document.querySelectorAll('.sidebar, #mainSidebar').forEach(s => s.classList.add('open'));
+        if (overlay) overlay.classList.add('active');
         document.body.style.overflow = 'hidden';
     }
 
     function closeSidebar() {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('active');
+        document.querySelectorAll('.sidebar, #mainSidebar').forEach(s => s.classList.remove('open'));
+        if (overlay) overlay.classList.remove('active');
         document.body.style.overflow = '';
     }
 
-    // Toggle button in topbar
+    // Toggle and Close Click Listeners
     document.addEventListener('click', e => {
         const toggleBtn = e.target.closest('#mobileSidebarToggle, .mobile-sidebar-toggle');
         const closeBtn  = e.target.closest('#mobileSidebarClose, .mobile-sidebar-close');
 
         if (toggleBtn) {
             e.stopPropagation();
-            if (sidebar.classList.contains('open')) {
+            e.preventDefault();
+            const anyOpen = document.querySelector('.sidebar.open, #mainSidebar.open');
+            if (anyOpen) {
                 closeSidebar();
             } else {
                 openSidebar();
@@ -53,8 +52,17 @@ function initMobileSidebar() {
         }
     });
 
+    // Close mobile menu on link click
+    document.querySelectorAll('.sidebar a, #mainSidebar a').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 992) {
+                closeSidebar();
+            }
+        });
+    });
+
     window.addEventListener('resize', () => {
-        if (window.innerWidth > 992 && sidebar.classList.contains('open')) {
+        if (window.innerWidth > 992) {
             closeSidebar();
         }
     });

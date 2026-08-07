@@ -172,7 +172,7 @@ grid-template-columns:1fr;
 <div class="wrapper">
 
 
-<?php include "../includes/student_sidebar.php"; ?>
+<?php include "../includes/sidebar.php"; ?>
 
 
 

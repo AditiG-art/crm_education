@@ -2,7 +2,7 @@
 
 /*
  * Smart Campus CRM — Database Configuration
- * Supports Railway (env vars) + local XAMPP (fallback)
+ * Supports Railway (MYSQL_URL / env vars) + local XAMPP (fallback)
  */
 
 $host     = getenv('MYSQLHOST')     ?: getenv('MYSQL_HOST')     ?: getenv('DB_HOST')     ?: 'localhost';
@@ -11,10 +11,24 @@ $password = getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD') ?: getenv('MYSQL
 $database = getenv('MYSQLDATABASE') ?: getenv('MYSQL_DATABASE') ?: getenv('DB_NAME')     ?: 'crm_education';
 $port     = (int)(getenv('MYSQLPORT') ?: getenv('MYSQL_PORT') ?: getenv('DB_PORT') ?: 3306);
 
-$isRailway = (bool)(getenv('RAILWAY_ENVIRONMENT') || getenv('MYSQLHOST') || getenv('MYSQL_HOST'));
+// Automatically parse Railway connection string if MYSQL_URL or DATABASE_URL is present
+$urlStr = getenv('MYSQL_URL') ?: getenv('DATABASE_URL') ?: getenv('MYSQL_PRIVATE_URL') ?: getenv('MYSQL_PUBLIC_URL');
+if($urlStr) {
+    $parsed = parse_url($urlStr);
+    if($parsed) {
+        if(!empty($parsed['host'])) $host = $parsed['host'];
+        if(!empty($parsed['user'])) $user = rawurldecode($parsed['user']);
+        if(!empty($parsed['pass'])) $password = rawurldecode($parsed['pass']);
+        if(!empty($parsed['port'])) $port = (int)$parsed['port'];
+        if(!empty($parsed['path']) && $parsed['path'] !== '/') $database = ltrim($parsed['path'], '/');
+    }
+}
+
+$isRailway = (bool)(getenv('RAILWAY_ENVIRONMENT') || getenv('MYSQLHOST') || getenv('MYSQL_HOST') || getenv('MYSQL_URL'));
 
 // Connect directly to target database
 $conn = @mysqli_connect($host, $user, $password, $database, $port);
+
 
 // Local XAMPP fallback: if target DB does not exist yet, connect to server & create DB
 if(!$conn && !$isRailway) {

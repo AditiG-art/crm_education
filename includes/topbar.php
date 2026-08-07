@@ -110,4 +110,5 @@ if(empty($notifications)) {
     </div>
 </div>
 
-<script src="../assets/js/crm_advanced.js"></script>
+<?php $scriptPath = file_exists("../assets/js/crm_advanced.js") ? "../assets/js/crm_advanced.js" : (file_exists("assets/js/crm_advanced.js") ? "assets/js/crm_advanced.js" : "/assets/js/crm_advanced.js"); ?>
+<script src="<?php echo $scriptPath; ?>"></script>

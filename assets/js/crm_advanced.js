@@ -11,13 +11,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ── Mobile Sidebar ─────────────────────────── */
 function initMobileSidebar() {
-    const toggle = document.getElementById('mobileSidebarToggle');
-    const sidebar = document.getElementById('mainSidebar');
-    if (!toggle || !sidebar) return;
-    toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+    const sidebar = document.querySelector('.sidebar') || document.getElementById('mainSidebar');
+    if (!sidebar) return;
+
+    // Ensure overlay exists
+    let overlay = document.querySelector('.sidebar-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        document.body.appendChild(overlay);
+    }
+
+    function openSidebar() {
+        sidebar.classList.add('open');
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    // Toggle button in topbar
     document.addEventListener('click', e => {
-        if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) {
-            sidebar.classList.remove('open');
+        const toggleBtn = e.target.closest('#mobileSidebarToggle, .mobile-sidebar-toggle');
+        const closeBtn  = e.target.closest('#mobileSidebarClose, .mobile-sidebar-close');
+
+        if (toggleBtn) {
+            e.stopPropagation();
+            if (sidebar.classList.contains('open')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        } else if (closeBtn) {
+            closeSidebar();
+        } else if (e.target === overlay) {
+            closeSidebar();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 992 && sidebar.classList.contains('open')) {
+            closeSidebar();
         }
     });
 }

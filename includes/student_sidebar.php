@@ -1,7 +1,12 @@
-<aside class="sidebar">
-    <div class="logo">
-        <i class="fa-solid fa-user-graduate"></i>
-        <h4>Student Panel</h4>
+<aside class="sidebar" id="mainSidebar">
+    <div class="logo d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-user-graduate"></i>
+            <h4 class="mb-0 text-white" style="font-size:16px;">Student Panel</h4>
+        </div>
+        <button type="button" class="mobile-sidebar-close d-md-none" id="mobileSidebarClose" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
     </div>
     <ul>
         <li class="<?= basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : '' ?>">

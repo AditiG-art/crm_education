@@ -4,9 +4,14 @@ $role = isset($_SESSION['role']) ? $_SESSION['role'] : 'admin';
 ?>
 <div class="sidebar" id="mainSidebar">
 
-    <div class="logo">
-        <i class="fa-solid fa-graduation-cap"></i>
-        <span>Smart Campus<br>CRM</span>
+    <div class="logo d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>Smart Campus<br>CRM</span>
+        </div>
+        <button type="button" class="mobile-sidebar-close d-md-none" id="mobileSidebarClose" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;padding:4px 8px;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
     </div>
 
     <div class="menu">

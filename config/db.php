@@ -5,33 +5,32 @@
  * Supports Railway (env vars) + local XAMPP (fallback)
  */
 
-// Railway provides MYSQL_URL or individual vars; local XAMPP uses defaults
-$host     = getenv('MYSQLHOST')     ?: getenv('DB_HOST')     ?: 'localhost';
-$user     = getenv('MYSQLUSER')     ?: getenv('DB_USER')     ?: 'root';
-$password = getenv('MYSQLPASSWORD') ?: getenv('DB_PASSWORD') ?: '';
-$database = getenv('MYSQLDATABASE') ?: getenv('DB_NAME')     ?: 'crm_education';
-$port     = (int)(getenv('MYSQLPORT') ?: getenv('DB_PORT') ?: 3306);
+$host     = getenv('MYSQLHOST')     ?: getenv('MYSQL_HOST')     ?: getenv('DB_HOST')     ?: 'localhost';
+$user     = getenv('MYSQLUSER')     ?: getenv('MYSQL_USER')     ?: getenv('DB_USER')     ?: 'root';
+$password = getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD') ?: getenv('MYSQL_ROOT_PASSWORD') ?: getenv('DB_PASSWORD') ?: '';
+$database = getenv('MYSQLDATABASE') ?: getenv('MYSQL_DATABASE') ?: getenv('DB_NAME')     ?: 'crm_education';
+$port     = (int)(getenv('MYSQLPORT') ?: getenv('MYSQL_PORT') ?: getenv('DB_PORT') ?: 3306);
 
-// Connect to MySQL server (without selecting DB first so we can auto-create it)
-$conn = @mysqli_connect($host, $user, $password, '', $port);
+$isRailway = (bool)(getenv('RAILWAY_ENVIRONMENT') || getenv('MYSQLHOST') || getenv('MYSQL_HOST'));
+
+// Connect directly to target database
+$conn = @mysqli_connect($host, $user, $password, $database, $port);
+
+// Local XAMPP fallback: if target DB does not exist yet, connect to server & create DB
+if(!$conn && !$isRailway) {
+    $conn = @mysqli_connect($host, $user, $password, '', $port);
+    if($conn) {
+        mysqli_query($conn, "CREATE DATABASE IF NOT EXISTS `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        mysqli_select_db($conn, $database);
+    }
+}
 
 if(!$conn){
     die("Database Connection Failed: " . mysqli_connect_error());
 }
 
-
-// Auto-create database if missing (skipped on Railway where DB is pre-created)
-$isRailway = (bool)getenv('RAILWAY_ENVIRONMENT');
-if(!$isRailway) {
-    mysqli_query($conn, "CREATE DATABASE IF NOT EXISTS `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-}
-
-if(!mysqli_select_db($conn, $database)) {
-    die("Database Selection Failed: " . mysqli_error($conn));
-}
-
-
 $conn->set_charset("utf8mb4");
+
 
 // Auto Table Schema Setup
 $tables = [

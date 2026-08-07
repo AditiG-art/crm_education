@@ -18,6 +18,49 @@ if(!$teacher) {
     $query = mysqli_query($conn, "SELECT * FROM teachers WHERE email='$email'");
     $teacher = mysqli_fetch_assoc($query);
 }
+
+$attendanceMsg = "";
+$attendanceErr = "";
+
+// Handle Attendance Submission directly in Teacher Profile
+if(isset($_POST['mark_attendance'])) {
+    $student_id      = intval($_POST['student_id'] ?? 0);
+    $attendance_date = trim($_POST['attendance_date'] ?? '');
+    $status          = trim($_POST['status'] ?? '');
+
+    if($student_id > 0 && !empty($attendance_date) && !empty($status)) {
+        $checkStmt = $conn->prepare("SELECT id FROM attendance WHERE student_id=? AND attendance_date=?");
+        $checkStmt->bind_param("is", $student_id, $attendance_date);
+        $checkStmt->execute();
+        $existing = $checkStmt->get_result();
+
+        if($existing && $existing->num_rows > 0) {
+            $updateStmt = $conn->prepare("UPDATE attendance SET status=? WHERE student_id=? AND attendance_date=?");
+            $updateStmt->bind_param("sis", $status, $student_id, $attendance_date);
+            if($updateStmt->execute()) {
+                $attendanceMsg = "Attendance record updated successfully!";
+            } else {
+                $attendanceErr = "Failed to update attendance record.";
+            }
+        } else {
+            $insertStmt = $conn->prepare("INSERT INTO attendance (student_id, attendance_date, status) VALUES (?, ?, ?)");
+            $insertStmt->bind_param("iss", $student_id, $attendance_date, $status);
+            if($insertStmt->execute()) {
+                $attendanceMsg = "Attendance marked successfully!";
+            } else {
+                $attendanceErr = "Failed to mark attendance.";
+            }
+        }
+    } else {
+        $attendanceErr = "Please fill in all required attendance fields.";
+    }
+}
+
+// Fetch all students for dropdown
+$studentsResult = $conn->query("SELECT id, full_name, email, course FROM students ORDER BY full_name ASC");
+
+// Fetch recent attendance logs
+$recentLogs = $conn->query("SELECT a.*, s.full_name, s.course FROM attendance a JOIN students s ON a.student_id = s.id ORDER BY a.attendance_date DESC, a.id DESC LIMIT 5");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -35,6 +78,41 @@ if(!$teacher) {
 .info-box{ display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
 .info-item{ background:#f8fafc; padding:18px; border-radius:15px; }
 .info-item i{ color:#2563eb; margin-right:10px; }
+
+.attendance-card {
+    background: white;
+    padding: 30px;
+    border-radius: 25px;
+    box-shadow: 0 10px 25px rgba(0,0,0,.08);
+    margin-top: 30px;
+}
+.attendance-card h4 {
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: #0f172a;
+}
+.form-label {
+    font-weight: 600;
+    color: #334155;
+}
+.form-control, .form-select {
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+}
+.btn-save-attendance {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    padding: 12px 28px;
+    border-radius: 12px;
+    font-weight: 600;
+    border: none;
+    transition: 0.3s;
+}
+.btn-save-attendance:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-2px);
+}
 @media(max-width:700px){ .info-box{ grid-template-columns:1fr; } }
 </style>
 </head>
@@ -50,7 +128,7 @@ if(!$teacher) {
         </div>
         <div>
             <h2><?= htmlspecialchars($teacher['full_name']) ?></h2>
-            <p class="text-muted">Teacher Profile</p>
+            <p class="text-muted mb-0">Teacher Profile</p>
         </div>
     </div>
 
@@ -73,6 +151,101 @@ if(!$teacher) {
         </div>
     </div>
 </div>
+
+<!-- MARK STUDENT ATTENDANCE SECTION -->
+<div class="attendance-card">
+    <h4><i class="fa-solid fa-calendar-check text-primary me-2"></i> Mark Student Attendance</h4>
+    <p class="text-muted small mb-4">Record or update student daily attendance directly from your profile.</p>
+
+    <?php if(!empty($attendanceMsg)): ?>
+        <div class="alert alert-success alert-dismissible fade show rounded-3 mb-3" role="alert">
+            <i class="fa-solid fa-circle-check me-2"></i> <?= htmlspecialchars($attendanceMsg) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+
+    <?php if(!empty($attendanceErr)): ?>
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-3" role="alert">
+            <i class="fa-solid fa-circle-exclamation me-2"></i> <?= htmlspecialchars($attendanceErr) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+
+    <form method="POST" action="profile.php">
+        <div class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label">Select Student</label>
+                <select name="student_id" class="form-select" required>
+                    <option value="">-- Choose Student --</option>
+                    <?php if($studentsResult): ?>
+                        <?php while($s = $studentsResult->fetch_assoc()): ?>
+                            <option value="<?= $s['id'] ?>">
+                                <?= htmlspecialchars($s['full_name']) ?> (<?= htmlspecialchars($s['course'] ?: 'General') ?>)
+                            </option>
+                        <?php endwhile; ?>
+                    <?php endif; ?>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Attendance Date</label>
+                <input type="date" name="attendance_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select" required>
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                    <option value="Late">Late</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" name="mark_attendance" class="btn-save-attendance">
+                <i class="fa-solid fa-check-circle me-1"></i> Save Attendance
+            </button>
+        </div>
+    </form>
+
+    <?php if($recentLogs && $recentLogs->num_rows > 0): ?>
+    <hr class="my-4">
+    <h5 class="fw-bold mb-3"><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i> Recent Attendance Records</h5>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Student</th>
+                    <th>Course</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php while($log = $recentLogs->fetch_assoc()): ?>
+                <tr>
+                    <td><strong><?= htmlspecialchars($log['full_name']) ?></strong></td>
+                    <td><?= htmlspecialchars($log['course'] ?: 'General') ?></td>
+                    <td><?= date('M d, Y', strtotime($log['attendance_date'])) ?></td>
+                    <td>
+                        <?php if($log['status'] === 'Present'): ?>
+                            <span class="badge bg-success"><i class="fa-solid fa-check"></i> Present</span>
+                        <?php elseif($log['status'] === 'Absent'): ?>
+                            <span class="badge bg-danger"><i class="fa-solid fa-xmark"></i> Absent</span>
+                        <?php else: ?>
+                            <span class="badge bg-warning text-dark"><i class="fa-solid fa-clock"></i> Late</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; ?>
+
+</div>
+
 </div>
 </body>
 </html>

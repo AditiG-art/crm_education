@@ -23,236 +23,429 @@ if (isset($_SESSION['user']) && isset($_SESSION['role'])) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Campus | Integrated Educational Ecosystem</title>
+<title>Smart Campus | Next-Gen Educational Management Portal</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
   --primary: #2563EB;
-  --primary-dark: #1E40AF;
-  --accent: #F59E0B;
-  --dark-bg: #0F172A;
-  --card-bg: #FFFFFF;
+  --primary-glow: #3B82F6;
+  --dark-navy: #0F172A;
+  --navy-card: #1E293B;
+  --accent-gold: #F59E0B;
+  --accent-emerald: #10B981;
+  --accent-purple: #8B5CF6;
+  --text-main: #F8FAFC;
+  --text-sub: #94A3B8;
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+  margin: 0; padding: 0; box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 body {
-  font-family: 'Inter', sans-serif;
-  background-color: #F8FAFC;
-  color: #0F172A;
+  background-color: var(--dark-navy);
+  color: var(--text-main);
   overflow-x: hidden;
+}
+
+/* Ambient Background Lights */
+.glow-ambient {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(140px);
+  pointer-events: none;
+  z-index: 0;
+}
+.glow-1 {
+  width: 500px; height: 500px;
+  background: rgba(37, 99, 235, 0.25);
+  top: -100px; left: -100px;
+}
+.glow-2 {
+  width: 450px; height: 450px;
+  background: rgba(139, 92, 246, 0.2);
+  top: 300px; right: -100px;
+}
+.glow-3 {
+  width: 400px; height: 400px;
+  background: rgba(245, 158, 11, 0.15);
+  bottom: 100px; left: 20%;
 }
 
 /* Navbar */
 .landing-nav {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid #E2E8F0;
-  padding: 16px 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 18px 0;
   position: sticky;
   top: 0;
   z-index: 1000;
 }
 .brand-logo {
   font-family: 'Outfit', sans-serif;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
-  color: var(--dark-bg);
+  color: white;
   text-decoration: none;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .brand-logo i {
-  width: 40px; height: 40px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, var(--primary), var(--accent-purple));
   color: white;
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-  box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+  font-size: 20px;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+}
+.nav-link-custom {
+  color: var(--text-sub);
+  font-weight: 500;
+  font-size: 15px;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+.nav-link-custom:hover {
+  color: white;
+}
+.btn-nav-login {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  color: white;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+.btn-nav-login:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: white;
+  transform: translateY(-1px);
+}
+.btn-nav-register {
+  background: linear-gradient(135deg, var(--primary), #3B82F6);
+  color: white;
+  font-weight: 600;
+  padding: 10px 24px;
+  border-radius: 12px;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+  transition: all 0.3s;
+}
+.btn-nav-register:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.5);
+  color: white;
 }
 
 /* Hero Section */
 .hero-section {
-  padding: 90px 0 70px;
-  background: radial-gradient(100% 100% at 50% 0%, #EFF6FF 0%, #F8FAFC 100%);
+  padding: 100px 0 80px;
   position: relative;
-  overflow: hidden;
+  z-index: 1;
 }
 .hero-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: #EFF6FF;
-  border: 1px solid #BFDBFE;
-  color: var(--primary);
-  font-size: 13px;
+  gap: 10px;
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60A5FA;
+  font-size: 14px;
   font-weight: 600;
-  padding: 6px 16px;
+  padding: 8px 20px;
   border-radius: 50px;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
+  backdrop-filter: blur(8px);
 }
 .hero-title {
   font-family: 'Outfit', sans-serif;
-  font-size: 54px;
+  font-size: 62px;
   font-weight: 800;
-  line-height: 1.15;
-  color: var(--dark-bg);
-  margin-bottom: 20px;
+  line-height: 1.1;
+  margin-bottom: 24px;
+  letter-spacing: -1px;
 }
 .hero-title span {
-  background: linear-gradient(135deg, var(--primary), #3B82F6);
+  background: linear-gradient(135deg, #60A5FA 0%, #A78BFA 50%, #F59E0B 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .hero-subtitle {
-  font-size: 18px;
-  color: #475569;
-  max-width: 640px;
-  margin: 0 auto 36px;
+  font-size: 19px;
+  color: var(--text-sub);
+  max-width: 680px;
+  margin: 0 auto 40px;
   line-height: 1.6;
 }
-.btn-primary-hero {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+.btn-hero-main {
+  background: linear-gradient(135deg, var(--primary), var(--primary-glow));
   color: white;
-  font-weight: 600;
-  padding: 14px 32px;
-  border-radius: 14px;
-  border: none;
-  box-shadow: 0 8px 24px rgba(37,99,235,0.3);
-  transition: all 0.3s;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 16px 36px;
+  border-radius: 16px;
   text-decoration: none;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
+  transition: all 0.3s;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
-.btn-primary-hero:hover {
+.btn-hero-main:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(37, 99, 235, 0.55);
+  color: white;
+}
+.btn-hero-outline {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: white;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 16px 36px;
+  border-radius: 16px;
+  text-decoration: none;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  backdrop-filter: blur(8px);
+}
+.btn-hero-outline:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(37,99,235,0.4);
-  color: white;
-}
-.btn-outline-hero {
-  background: white;
-  color: #334155;
-  font-weight: 600;
-  padding: 14px 32px;
-  border-radius: 14px;
-  border: 1px solid #CBD5E1;
-  transition: all 0.3s;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-.btn-outline-hero:hover {
-  background: #F1F5F9;
-  color: var(--dark-bg);
 }
 
-/* Role Quick Cards */
-.role-cards-section {
-  margin-top: -40px;
+/* Glass Dashboard Preview Card */
+.hero-preview-wrapper {
+  margin-top: 65px;
   position: relative;
-  z-index: 10;
 }
-.role-card {
-  background: white;
-  border-radius: 20px;
-  padding: 28px 24px;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.05);
-  transition: all 0.3s;
+.hero-preview-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  padding: 30px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+}
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.dots {
+  display: flex; gap: 8px;
+}
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot-red { background: #EF4444; }
+.dot-yellow { background: #F59E0B; }
+.dot-green { background: #10B981; }
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.preview-stat {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--glass-border);
+  padding: 20px;
+  border-radius: 18px;
+  text-align: left;
+}
+.preview-stat i {
+  font-size: 22px;
+  margin-bottom: 12px;
+}
+.preview-stat h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.preview-stat p {
+  color: var(--text-sub);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* Role Portals Grid */
+.portals-section {
+  padding: 100px 0;
+  position: relative;
+  z-index: 1;
+}
+.section-title-badge {
+  color: var(--primary-glow);
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 12px;
+}
+.section-heading {
+  font-family: 'Outfit', sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+.portal-card {
+  background: var(--navy-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 36px 28px;
+  transition: all 0.35s ease;
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
+  overflow: hidden;
 }
-.role-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 40px rgba(37,99,235,0.12);
-  border-color: #BFDBFE;
+.portal-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(96, 165, 250, 0.4);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
 }
-.role-icon {
-  width: 56px; height: 56px;
-  border-radius: 16px;
+.portal-icon {
+  width: 64px; height: 64px;
+  border-radius: 20px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 24px;
-  margin-bottom: 20px;
+  font-size: 28px;
+  margin-bottom: 24px;
 }
-.role-student .role-icon { background: #EFF6FF; color: #2563EB; }
-.role-parent  .role-icon { background: #FEF3C7; color: #D97706; }
-.role-teacher .role-icon { background: #ECFDF5; color: #059669; }
-.role-admin   .role-icon { background: #F3E8FF; color: #7C3AED; }
+.portal-student .portal-icon { background: rgba(37, 99, 235, 0.15); color: #60A5FA; }
+.portal-parent  .portal-icon { background: rgba(245, 158, 11, 0.15); color: #FBBF24; }
+.portal-teacher .portal-icon { background: rgba(16, 185, 129, 0.15); color: #34D399; }
+.portal-admin   .portal-icon { background: rgba(139, 92, 246, 0.15); color: #C084FC; }
 
-.role-card h4 {
+.portal-card h3 {
   font-family: 'Outfit', sans-serif;
+  font-size: 24px;
   font-weight: 700;
-  font-size: 20px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
-.role-card p {
-  color: #64748B;
-  font-size: 14px;
-  margin-bottom: 20px;
+.portal-card p {
+  color: var(--text-sub);
+  font-size: 14.5px;
+  line-height: 1.6;
+  margin-bottom: 28px;
   flex-grow: 1;
 }
-.role-link {
+.portal-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  color: white;
   font-weight: 600;
   font-size: 14px;
-  color: var(--primary);
+  padding: 12px 20px;
+  border-radius: 14px;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-}
-
-/* Feature Grid */
-.features-section {
-  padding: 90px 0;
-}
-.section-header {
-  text-align: center;
-  max-width: 600px;
-  margin: 0 auto 50px;
-}
-.section-header h2 {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 800;
-  font-size: 36px;
-}
-.feature-box {
-  background: white;
-  border-radius: 20px;
-  padding: 32px;
-  border: 1px solid #E2E8F0;
-  height: 100%;
+  justify-content: space-between;
   transition: all 0.3s;
 }
-.feature-box:hover {
-  border-color: #BFDBFE;
-  box-shadow: 0 12px 32px rgba(37,99,235,0.08);
+.portal-card:hover .portal-btn {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
 }
-.feature-icon-wrapper {
-  width: 48px; height: 48px;
-  border-radius: 14px;
-  background: #EFF6FF;
-  color: var(--primary);
+
+/* Bento Feature Section */
+.features-section {
+  padding: 90px 0 110px;
+  position: relative;
+  z-index: 1;
+}
+.bento-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 36px;
+  height: 100%;
+  backdrop-filter: blur(12px);
+}
+.bento-icon {
+  width: 52px; height: 52px;
+  border-radius: 16px;
+  background: rgba(37, 99, 235, 0.15);
+  color: #60A5FA;
   display: flex; align-items: center; justify-content: center;
-  font-size: 20px;
+  font-size: 22px;
   margin-bottom: 20px;
+}
+
+/* FAQ Accordion */
+.faq-section {
+  padding: 90px 0;
+}
+.accordion-item {
+  background: var(--navy-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px !important;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.accordion-button {
+  background: var(--navy-card);
+  color: white;
+  font-weight: 700;
+  font-size: 17px;
+  padding: 20px 24px;
+  box-shadow: none !important;
+}
+.accordion-button:not(.collapsed) {
+  background: rgba(37, 99, 235, 0.15);
+  color: #60A5FA;
+}
+.accordion-body {
+  color: var(--text-sub);
+  font-size: 15px;
+  line-height: 1.7;
+  padding: 0 24px 24px;
 }
 
 /* Footer */
 footer {
-  background: var(--dark-bg);
-  color: rgba(255,255,255,0.7);
-  padding: 40px 0 30px;
-  border-top: 1px solid rgba(255,255,255,0.1);
+  background: #0B1120;
+  border-top: 1px solid var(--glass-border);
+  padding: 60px 0 30px;
+  color: var(--text-sub);
 }
-footer a { color: white; text-decoration: none; }
+footer a { color: var(--text-sub); text-decoration: none; transition: color 0.3s; }
+footer a:hover { color: white; }
+
+@media (max-width: 992px) {
+  .hero-title { font-size: 42px; }
+  .preview-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 576px) {
+  .hero-title { font-size: 34px; }
+  .preview-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
+
+<!-- Ambient Glow Backgrounds -->
+<div class="glow-ambient glow-1"></div>
+<div class="glow-ambient glow-2"></div>
+<div class="glow-ambient glow-3"></div>
 
 <!-- Navbar -->
 <nav class="landing-nav">
@@ -261,9 +454,14 @@ footer a { color: white; text-decoration: none; }
             <i class="fa-solid fa-graduation-cap"></i>
             <span>Smart Campus</span>
         </a>
+        <div class="d-none d-md-flex align-items-center gap-4">
+            <a href="#portals" class="nav-link-custom">Portals</a>
+            <a href="#features" class="nav-link-custom">Features</a>
+            <a href="#faq" class="nav-link-custom">FAQ</a>
+        </div>
         <div class="d-flex align-items-center gap-3">
-            <a href="login.php" class="btn btn-link text-dark fw-semibold text-decoration-none px-3">Sign In</a>
-            <a href="register.php" class="btn-primary-hero py-2 px-4" style="font-size:14px;">Register Now</a>
+            <a href="login.php" class="btn-nav-login">Sign In</a>
+            <a href="register.php" class="btn-nav-register">Get Started</a>
         </div>
     </div>
 </nav>
@@ -272,94 +470,208 @@ footer a { color: white; text-decoration: none; }
 <section class="hero-section text-center">
     <div class="container">
         <div class="hero-badge mx-auto">
-            <i class="fa-solid fa-sparkles text-warning"></i> Next-Gen Educational Portal
+            <i class="fa-solid fa-sparkles text-warning"></i> Next-Gen Campus Platform
         </div>
-        <h1 class="hero-title">Welcome to <span>Smart Campus</span></h1>
+        <h1 class="hero-title">
+            Empowering Education with <br><span>Smart Campus</span>
+        </h1>
         <p class="hero-subtitle">
-            An integrated digital ecosystem connecting Students, Parents, Teachers, and Administrators seamlessly in real-time.
+            An integrated, intelligent digital ecosystem connecting Students, Parents, Teachers, and Institute Administrators in real-time.
         </p>
         <div class="d-flex align-items-center justify-content-center gap-3 flex-wrap">
-            <a href="login.php" class="btn-primary-hero">
-                Portal Sign In <i class="fa-solid fa-arrow-right"></i>
+            <a href="register.php" class="btn-hero-main">
+                Create Account <i class="fa-solid fa-arrow-right"></i>
             </a>
-            <a href="register.php" class="btn-outline-hero">
-                Create Account <i class="fa-solid fa-user-plus"></i>
+            <a href="login.php" class="btn-hero-outline">
+                Sign In to Portal <i class="fa-solid fa-right-to-bracket"></i>
             </a>
         </div>
+
+        <!-- Hero Preview Mockup Card -->
+        <div class="hero-preview-wrapper col-lg-10 mx-auto">
+            <div class="hero-preview-card">
+                <div class="preview-header">
+                    <div class="dots">
+                        <div class="dot dot-red"></div>
+                        <div class="dot dot-yellow"></div>
+                        <div class="dot dot-green"></div>
+                    </div>
+                    <small class="text-muted"><i class="fa-solid fa-shield-halved text-success me-1"></i> Smart Campus Operating System v5.0</small>
+                </div>
+                <div class="preview-grid">
+                    <div class="preview-stat">
+                        <i class="fa-solid fa-user-graduate text-primary"></i>
+                        <h3>2,450+</h3>
+                        <p>Enrolled Students</p>
+                    </div>
+                    <div class="preview-stat">
+                        <i class="fa-solid fa-calendar-check text-success"></i>
+                        <h3>99.4%</h3>
+                        <p>Attendance Health</p>
+                    </div>
+                    <div class="preview-stat">
+                        <i class="fa-solid fa-users text-warning"></i>
+                        <h3>100%</h3>
+                        <p>Surname Parent Link</p>
+                    </div>
+                    <div class="preview-stat">
+                        <i class="fa-solid fa-star text-info"></i>
+                        <h3>3.85 / 4.0</h3>
+                        <p>Average CGPA</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </section>
 
-<!-- Role Quick Access Cards -->
-<section class="role-cards-section">
+<!-- Portals Grid -->
+<section class="portals-section" id="portals">
     <div class="container">
+        <div class="text-center mb-5">
+            <div class="section-title-badge">Unified Role Portals</div>
+            <h2 class="section-heading">Dedicated Ecosystems for Everyone</h2>
+            <p class="text-muted max-w-lg mx-auto">Tailored portals providing instant access to attendance, transcripts, timetables, and campus management.</p>
+        </div>
+
         <div class="row g-4">
             <!-- Student -->
             <div class="col-md-6 col-lg-3">
-                <div class="role-card role-student">
-                    <div class="role-icon"><i class="fa-solid fa-user-graduate"></i></div>
-                    <h4>Student Portal</h4>
-                    <p>Track attendance, view exam grades, monitor CGPA, and receive institute announcements.</p>
-                    <a href="login.php" class="role-link">Login as Student <i class="fa-solid fa-arrow-right"></i></a>
+                <div class="portal-card portal-student">
+                    <div class="portal-icon"><i class="fa-solid fa-user-graduate"></i></div>
+                    <h3>Student Portal</h3>
+                    <p>Track your daily class attendance, view published exam grades, calculate CGPA, and view achievements.</p>
+                    <a href="login.php" class="portal-btn">
+                        <span>Student Login</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </a>
                 </div>
             </div>
+
             <!-- Parent -->
             <div class="col-md-6 col-lg-3">
-                <div class="role-card role-parent">
-                    <div class="role-icon"><i class="fa-solid fa-hands-holding-child"></i></div>
-                    <h4>Parent Portal</h4>
-                    <p>Automatic surname-based student linking to review child attendance, test scores, and reports.</p>
-                    <a href="login.php" class="role-link">Login as Parent <i class="fa-solid fa-arrow-right"></i></a>
+                <div class="portal-card portal-parent">
+                    <div class="portal-icon"><i class="fa-solid fa-hands-holding-child"></i></div>
+                    <h3>Parent Portal</h3>
+                    <p>Automatic surname-based student linking. Monitor your child's attendance health, test scores, and reports.</p>
+                    <a href="login.php" class="portal-btn">
+                        <span>Parent Login</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </a>
                 </div>
             </div>
+
             <!-- Teacher -->
             <div class="col-md-6 col-lg-3">
-                <div class="role-card role-teacher">
-                    <div class="role-icon"><i class="fa-solid fa-chalkboard-user"></i></div>
-                    <h4>Teacher Portal</h4>
-                    <p>Manage subject timetables, schedule examinations, mark attendance, and upload student grades.</p>
-                    <a href="login.php" class="role-link">Login as Teacher <i class="fa-solid fa-arrow-right"></i></a>
+                <div class="portal-card portal-teacher">
+                    <div class="portal-icon"><i class="fa-solid fa-chalkboard-user"></i></div>
+                    <h3>Teacher Portal</h3>
+                    <p>Manage daily timetables, schedule unit tests, mark student attendance, and upload subject marks easily.</p>
+                    <a href="login.php" class="portal-btn">
+                        <span>Teacher Login</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </a>
                 </div>
             </div>
+
             <!-- Admin -->
             <div class="col-md-6 col-lg-3">
-                <div class="role-card role-admin">
-                    <div class="role-icon"><i class="fa-solid fa-user-gear"></i></div>
-                    <h4>Admin Panel</h4>
-                    <p>Complete institutional control, student/teacher rosters, course creation, and overall analytics.</p>
-                    <a href="login.php" class="role-link">Login as Admin <i class="fa-solid fa-arrow-right"></i></a>
+                <div class="portal-card portal-admin">
+                    <div class="portal-icon"><i class="fa-solid fa-user-gear"></i></div>
+                    <h3>Admin Panel</h3>
+                    <p>Complete control tower: manage student & teacher rosters, course catalogs, system announcements, and fee logs.</p>
+                    <a href="login.php" class="portal-btn">
+                        <span>Admin Login</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Features Section -->
-<section class="features-section">
+<!-- Features Bento Section -->
+<section class="features-section" id="features">
     <div class="container">
-        <div class="section-header">
-            <h2>Designed for Excellence</h2>
-            <p class="text-muted">Built with precision to make campus operations simple, transparent, and efficient.</p>
+        <div class="text-center mb-5">
+            <div class="section-title-badge">Platform Highlights</div>
+            <h2 class="section-heading">Built for Seamless Operations</h2>
         </div>
+
         <div class="row g-4">
-            <div class="col-md-4">
-                <div class="feature-box">
-                    <div class="feature-icon-wrapper"><i class="fa-solid fa-users-viewfinder"></i></div>
-                    <h5 class="fw-bold">Surname-Based Parent Link</h5>
-                    <p class="text-muted small">Parents automatically access their children's report cards and attendance records based on matching surname.</p>
+            <div class="col-md-6 col-lg-4">
+                <div class="bento-card">
+                    <div class="bento-icon"><i class="fa-solid fa-users"></i></div>
+                    <h4 class="fw-bold mb-2">Surname-Based Parent Linking</h4>
+                    <p class="text-muted small">Zero manual linking code needed. Parents automatically view report cards and attendance logs for students matching their surname.</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="feature-box">
-                    <div class="feature-icon-wrapper"><i class="fa-solid fa-calendar-check"></i></div>
-                    <h5 class="fw-bold">Real-time Attendance Tracking</h5>
-                    <p class="text-muted small">Comprehensive daily attendance logs with instant metrics, present/absent counts, and progress health rings.</p>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="bento-card">
+                    <div class="bento-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                    <h4 class="fw-bold mb-2">Interactive Attendance Rings</h4>
+                    <p class="text-muted small">Real-time attendance percentage visualization with SVG health rings and metric breakdowns for present, absent, and late entries.</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="feature-box">
-                    <div class="feature-icon-wrapper"><i class="fa-solid fa-square-poll-vertical"></i></div>
-                    <h5 class="fw-bold">Academic Performance Analytics</h5>
-                    <p class="text-muted small">Subject-by-subject score breakdown, Chart.js performance graphs, CGPA calculation, and official transcripts.</p>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="bento-card">
+                    <div class="bento-icon"><i class="fa-solid fa-square-poll-vertical"></i></div>
+                    <h4 class="fw-bold mb-2">Performance Analytics & Transcripts</h4>
+                    <p class="text-muted small">Automated GPA calculation, subject performance charts using Chart.js, and exportable academic transcript view.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FAQ Accordion Section -->
+<section class="faq-section" id="faq">
+    <div class="container col-lg-8">
+        <div class="text-center mb-5">
+            <div class="section-title-badge">Got Questions?</div>
+            <h2 class="section-heading">Frequently Asked Questions</h2>
+        </div>
+
+        <div class="accordion" id="faqAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                        How does parent-child linking work?
+                    </button>
+                </h2>
+                <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        When a parent registers with their Last Name (surname), Smart Campus automatically links their account with all students carrying that matching surname. Parents can seamlessly monitor reports, attendance, and exam grades.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                        Which user roles are supported in Smart Campus?
+                    </button>
+                </h2>
+                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Smart Campus supports 4 distinct user roles: Student, Parent, Teacher, and Administrator—each equipped with dedicated dashboards and privacy controls.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                        How do teachers submit timetable schedules & marks?
+                    </button>
+                </h2>
+                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Teachers have access to a Teacher Portal where they can view class timetables, schedule unit tests, mark attendance logs, and upload student scores directly into the database.
+                    </div>
                 </div>
             </div>
         </div>
@@ -368,14 +680,32 @@ footer a { color: white; text-decoration: none; }
 
 <!-- Footer -->
 <footer>
-    <div class="container text-center">
-        <div class="d-flex align-items-center justify-content-center gap-2 mb-3">
-            <i class="fa-solid fa-graduation-cap text-primary fs-4"></i>
-            <span class="font-bold text-white fs-5" style="font-family:'Outfit',sans-serif;">Smart Campus</span>
+    <div class="container">
+        <div class="row g-4 align-items-center justify-content-between pb-4">
+            <div class="col-md-6 text-center text-md-start">
+                <a href="index.php" class="brand-logo mb-2">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    <span>Smart Campus</span>
+                </a>
+                <p class="small text-muted mb-0">Empowering Students, Parents, Teachers, and Institutions worldwide.</p>
+            </div>
+            <div class="col-md-6 text-center text-md-end">
+                <div class="d-flex align-items-center justify-content-center justify-content-md-end gap-3">
+                    <a href="login.php">Login</a>
+                    <span>•</span>
+                    <a href="register.php">Register</a>
+                    <span>•</span>
+                    <a href="#portals">Portals</a>
+                </div>
+            </div>
         </div>
-        <p class="small mb-0">&copy; <?= date('Y') ?> Smart Campus. All rights reserved.</p>
+        <hr style="border-color:var(--glass-border);">
+        <div class="text-center small text-muted pt-2">
+            &copy; <?= date('Y') ?> Smart Campus. All rights reserved.
+        </div>
     </div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

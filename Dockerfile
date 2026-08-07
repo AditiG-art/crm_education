@@ -1,26 +1,28 @@
-# Official PHP 8.2 with Apache for Railway Deployment
-FROM php:8.2-apache
+# Nginx + PHP 8.2-FPM Alpine Container for Railway
+FROM php:8.2-fpm-alpine
 
-# Install MySQL extensions for PHP
-RUN docker-php-ext-install mysqli pdo pdo_mysql \
+# Install Nginx, gettext (for envsubst), supervisor, and MySQL PHP extensions
+RUN apk add --no-cache nginx supervisor gettext \
+    && docker-php-ext-install mysqli pdo pdo_mysql \
     && docker-php-ext-enable mysqli pdo_mysql
 
-# Enable Apache mod_rewrite for URL routing and .htaccess
-RUN a2enmod rewrite
+# Create runtime directories
+RUN mkdir -p /run/nginx /var/log/supervisor /var/www/html /etc/nginx/templates
 
-# Configure Apache to listen dynamically on Railway's $PORT environment variable
-RUN sed -i 's/80/${PORT}/g' /etc/apache2/ports.conf /etc/apache2/sites-available/*.conf
+# Copy Nginx template, supervisor config, and entrypoint
+COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/entrypoint.sh /entrypoint.sh
 
-# Copy all project files into Apache document root
+RUN chmod +x /entrypoint.sh
+
+# Copy source code into web root
 WORKDIR /var/www/html
 COPY . /var/www/html/
 
-# Set correct web permissions
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
+# Set ownership and permissions
+RUN chown -R www-data:www-data /var/www/html /run/nginx
 
-# Expose port
 EXPOSE 80
 
-# Start Apache server in foreground
-CMD ["apache2-foreground"]
+ENTRYPOINT ["/entrypoint.sh"]

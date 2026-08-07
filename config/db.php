@@ -1,23 +1,35 @@
 <?php
 
-$host = "localhost";
-$user = "root";
-$password = "";
-$database = "crm_education";
+/*
+ * Smart Campus CRM — Database Configuration
+ * Supports Railway (env vars) + local XAMPP (fallback)
+ */
 
-// Connect to MySQL server
-$conn = @mysqli_connect($host, $user, $password);
+// Railway provides MYSQL_URL or individual vars; local XAMPP uses defaults
+$host     = getenv('MYSQLHOST')     ?: getenv('DB_HOST')     ?: 'localhost';
+$user     = getenv('MYSQLUSER')     ?: getenv('DB_USER')     ?: 'root';
+$password = getenv('MYSQLPASSWORD') ?: getenv('DB_PASSWORD') ?: '';
+$database = getenv('MYSQLDATABASE') ?: getenv('DB_NAME')     ?: 'crm_education';
+$port     = (int)(getenv('MYSQLPORT') ?: getenv('DB_PORT') ?: 3306);
+
+// Connect to MySQL server (without selecting DB first so we can auto-create it)
+$conn = @mysqli_connect($host, $user, $password, '', $port);
 
 if(!$conn){
     die("Database Connection Failed: " . mysqli_connect_error());
 }
 
-// Auto-create database if missing
-$createDb = mysqli_query($conn, "CREATE DATABASE IF NOT EXISTS `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+// Auto-create database if missing (skipped on Railway where DB is pre-created)
+$isRailway = (bool)getenv('RAILWAY_ENVIRONMENT');
+if(!$isRailway) {
+    mysqli_query($conn, "CREATE DATABASE IF NOT EXISTS `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+}
 
 if(!mysqli_select_db($conn, $database)) {
     die("Database Selection Failed: " . mysqli_error($conn));
 }
+
 
 $conn->set_charset("utf8mb4");
 

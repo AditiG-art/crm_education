@@ -21,38 +21,58 @@ if(!$teacher) {
 
 $attendanceMsg = "";
 $attendanceErr = "";
+$selectedStudentId = 0;
+$selectedDate = date('Y-m-d');
+$selectedStatus = 'Present';
 
 // Handle Attendance Submission directly in Teacher Profile
-if(isset($_POST['mark_attendance'])) {
+if($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['mark_attendance']) || isset($_POST['student_id']))) {
     $student_id      = intval($_POST['student_id'] ?? 0);
     $attendance_date = trim($_POST['attendance_date'] ?? '');
     $status          = trim($_POST['status'] ?? '');
 
-    if($student_id > 0 && !empty($attendance_date) && !empty($status)) {
-        $checkStmt = $conn->prepare("SELECT id FROM attendance WHERE student_id=? AND attendance_date=?");
-        $checkStmt->bind_param("is", $student_id, $attendance_date);
-        $checkStmt->execute();
-        $existing = $checkStmt->get_result();
+    $selectedStudentId = $student_id;
+    $selectedDate      = $attendance_date ?: date('Y-m-d');
+    $selectedStatus    = $status ?: 'Present';
 
-        if($existing && $existing->num_rows > 0) {
-            $updateStmt = $conn->prepare("UPDATE attendance SET status=? WHERE student_id=? AND attendance_date=?");
-            $updateStmt->bind_param("sis", $status, $student_id, $attendance_date);
-            if($updateStmt->execute()) {
-                $attendanceMsg = "Attendance record updated successfully!";
+    if($student_id > 0 && !empty($attendance_date) && !empty($status)) {
+        // Check if attendance record already exists for student on this date
+        $checkStmt = $conn->prepare("SELECT id FROM attendance WHERE student_id=? AND attendance_date=?");
+        if($checkStmt) {
+            $checkStmt->bind_param("is", $student_id, $attendance_date);
+            $checkStmt->execute();
+            $existing = $checkStmt->get_result();
+
+            if($existing && $existing->num_rows > 0) {
+                $updateStmt = $conn->prepare("UPDATE attendance SET status=? WHERE student_id=? AND attendance_date=?");
+                if($updateStmt) {
+                    $updateStmt->bind_param("sis", $status, $student_id, $attendance_date);
+                    if($updateStmt->execute()) {
+                        $attendanceMsg = "Attendance updated successfully!";
+                    } else {
+                        $attendanceErr = "Failed to update attendance: " . $updateStmt->error;
+                    }
+                } else {
+                    $attendanceErr = "Database error: " . $conn->error;
+                }
             } else {
-                $attendanceErr = "Failed to update attendance record.";
+                $insertStmt = $conn->prepare("INSERT INTO attendance (student_id, attendance_date, status) VALUES (?, ?, ?)");
+                if($insertStmt) {
+                    $insertStmt->bind_param("iss", $student_id, $attendance_date, $status);
+                    if($insertStmt->execute()) {
+                        $attendanceMsg = "Attendance marked successfully!";
+                    } else {
+                        $attendanceErr = "Failed to mark attendance: " . $insertStmt->error;
+                    }
+                } else {
+                    $attendanceErr = "Database error: " . $conn->error;
+                }
             }
         } else {
-            $insertStmt = $conn->prepare("INSERT INTO attendance (student_id, attendance_date, status) VALUES (?, ?, ?)");
-            $insertStmt->bind_param("iss", $student_id, $attendance_date, $status);
-            if($insertStmt->execute()) {
-                $attendanceMsg = "Attendance marked successfully!";
-            } else {
-                $attendanceErr = "Failed to mark attendance.";
-            }
+            $attendanceErr = "Database error: " . $conn->error;
         }
     } else {
-        $attendanceErr = "Please fill in all required attendance fields.";
+        $attendanceErr = "Please select a student, date, and status.";
     }
 }
 
@@ -60,7 +80,7 @@ if(isset($_POST['mark_attendance'])) {
 $studentsResult = $conn->query("SELECT id, full_name, email, course FROM students ORDER BY full_name ASC");
 
 // Fetch recent attendance logs
-$recentLogs = $conn->query("SELECT a.*, s.full_name, s.course FROM attendance a JOIN students s ON a.student_id = s.id ORDER BY a.attendance_date DESC, a.id DESC LIMIT 5");
+$recentLogs = $conn->query("SELECT a.*, s.full_name, s.course FROM attendance a JOIN students s ON a.student_id = s.id ORDER BY a.attendance_date DESC, a.id DESC LIMIT 10");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -153,7 +173,7 @@ $recentLogs = $conn->query("SELECT a.*, s.full_name, s.course FROM attendance a 
 </div>
 
 <!-- MARK STUDENT ATTENDANCE SECTION -->
-<div class="attendance-card">
+<div class="attendance-card" id="attendanceSection">
     <h4><i class="fa-solid fa-calendar-check text-primary me-2"></i> Mark Student Attendance</h4>
     <p class="text-muted small mb-4">Record or update student daily attendance directly from your profile.</p>
 
@@ -171,39 +191,42 @@ $recentLogs = $conn->query("SELECT a.*, s.full_name, s.course FROM attendance a 
         </div>
     <?php endif; ?>
 
-    <form method="POST" action="profile.php">
+    <form method="POST" action="">
+        <input type="hidden" name="mark_attendance" value="1">
         <div class="row g-3">
             <div class="col-md-5">
                 <label class="form-label">Select Student</label>
                 <select name="student_id" class="form-select" required>
                     <option value="">-- Choose Student --</option>
-                    <?php if($studentsResult): ?>
+                    <?php if($studentsResult && $studentsResult->num_rows > 0): ?>
                         <?php while($s = $studentsResult->fetch_assoc()): ?>
-                            <option value="<?= $s['id'] ?>">
+                            <option value="<?= $s['id'] ?>" <?= $selectedStudentId == $s['id'] ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($s['full_name']) ?> (<?= htmlspecialchars($s['course'] ?: 'General') ?>)
                             </option>
                         <?php endwhile; ?>
+                    <?php else: ?>
+                        <option value="" disabled>No students found in system</option>
                     <?php endif; ?>
                 </select>
             </div>
 
             <div class="col-md-4">
                 <label class="form-label">Attendance Date</label>
-                <input type="date" name="attendance_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                <input type="date" name="attendance_date" class="form-control" value="<?= htmlspecialchars($selectedDate) ?>" required>
             </div>
 
             <div class="col-md-3">
                 <label class="form-label">Status</label>
                 <select name="status" class="form-select" required>
-                    <option value="Present">Present</option>
-                    <option value="Absent">Absent</option>
-                    <option value="Late">Late</option>
+                    <option value="Present" <?= $selectedStatus === 'Present' ? 'selected' : '' ?>>Present</option>
+                    <option value="Absent" <?= $selectedStatus === 'Absent' ? 'selected' : '' ?>>Absent</option>
+                    <option value="Late" <?= $selectedStatus === 'Late' ? 'selected' : '' ?>>Late</option>
                 </select>
             </div>
         </div>
 
         <div class="mt-4">
-            <button type="submit" name="mark_attendance" class="btn-save-attendance">
+            <button type="submit" class="btn-save-attendance">
                 <i class="fa-solid fa-check-circle me-1"></i> Save Attendance
             </button>
         </div>
@@ -230,11 +253,11 @@ $recentLogs = $conn->query("SELECT a.*, s.full_name, s.course FROM attendance a 
                     <td><?= date('M d, Y', strtotime($log['attendance_date'])) ?></td>
                     <td>
                         <?php if($log['status'] === 'Present'): ?>
-                            <span class="badge bg-success"><i class="fa-solid fa-check"></i> Present</span>
+                            <span class="badge bg-success"><i class="fa-solid fa-check me-1"></i> Present</span>
                         <?php elseif($log['status'] === 'Absent'): ?>
-                            <span class="badge bg-danger"><i class="fa-solid fa-xmark"></i> Absent</span>
+                            <span class="badge bg-danger"><i class="fa-solid fa-xmark me-1"></i> Absent</span>
                         <?php else: ?>
-                            <span class="badge bg-warning text-dark"><i class="fa-solid fa-clock"></i> Late</span>
+                            <span class="badge bg-warning text-dark"><i class="fa-solid fa-clock me-1"></i> Late</span>
                         <?php endif; ?>
                     </td>
                 </tr>

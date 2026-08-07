@@ -239,7 +239,7 @@ Login
 
 Don't have an account?
 
-<a href="#">
+<a href="register.php">
 Register
 </a>
 

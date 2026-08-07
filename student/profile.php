@@ -32,7 +32,11 @@ $student = mysqli_fetch_assoc($query);
 
 if(!$student)
 {
-    die("Student profile not found");
+    $name_esc = mysqli_real_escape_string($conn, $_SESSION['user'] ?? 'Student');
+    $email_esc = mysqli_real_escape_string($conn, $email);
+    mysqli_query($conn, "INSERT INTO students (full_name, email, phone, gender, date_of_birth, course, address) VALUES ('$name_esc', '$email_esc', '', '', NULL, '', '')");
+    $query = mysqli_query($conn, "SELECT * FROM students WHERE email='$email'");
+    $student = mysqli_fetch_assoc($query);
 }
 
 
@@ -283,7 +287,7 @@ Student Profile
 
 <br>
 
-<?php echo $student['phone']; ?>
+<?php echo !empty($student['phone']) ? htmlspecialchars($student['phone']) : '<span class="text-muted">Not Provided</span>'; ?>
 
 </div>
 
@@ -298,7 +302,7 @@ Student Profile
 
 <br>
 
-<?php echo !empty($student['date_of_birth']) ? htmlspecialchars($student['date_of_birth']) : 'Not Added'; ?>
+<?php echo !empty($student['date_of_birth']) ? htmlspecialchars($student['date_of_birth']) : '<span class="text-muted">Not Provided</span>'; ?>
 
 </div>
 
@@ -313,7 +317,7 @@ Student Profile
 
 <br>
 
-<?php echo $student['course']; ?>
+<?php echo !empty($student['course']) ? htmlspecialchars($student['course']) : '<span class="text-muted">Not Enrolled</span>'; ?>
 
 </div>
 
@@ -329,7 +333,7 @@ Student Profile
 
 <br>
 
-<?php echo $student['gender']; ?>
+<?php echo !empty($student['gender']) ? htmlspecialchars($student['gender']) : '<span class="text-muted">Not Provided</span>'; ?>
 
 </div>
 
@@ -345,7 +349,7 @@ Student Profile
 
 <br>
 
-<?php echo $student['address']; ?>
+<?php echo !empty($student['address']) ? htmlspecialchars($student['address']) : '<span class="text-muted">Not Provided</span>'; ?>
 
 </div>
 

@@ -86,6 +86,10 @@ $role = isset($_SESSION['role']) ? $_SESSION['role'] : 'admin';
             <i class="fa-solid fa-square-poll-vertical"></i> Upload Results
         </a>
 
+        <a href="../teacher/profile.php" class="<?= $currentPage=='profile.php' ? 'active' : '' ?>">
+            <i class="fa-solid fa-id-card"></i> My Profile
+        </a>
+
         <?php elseif($role == 'student'): ?>
         <span class="sidebar-label">Student Portal</span>
 

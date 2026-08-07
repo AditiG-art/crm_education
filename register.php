@@ -45,8 +45,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
         $error = "Please fill in all required fields.";
     } elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Invalid email address.";
-    } elseif($role === 'student' && empty($course)) {
-        $error = "Please select or specify what course you are enrolling in.";
+    } elseif(empty($course)) {
+        $error = ($role === 'teacher') ? "Please select or specify the subject/course you are going to teach." : "Please select or specify the course you are enrolling in.";
     } elseif($password !== $confirm) {
         $error = "Passwords do not match.";
     } elseif(strlen($password) < 6) {
@@ -72,15 +72,24 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 
                 // Create profile based on role
                 if($role === 'teacher') {
-                    // Teacher profile
+                    // Teacher profile with assigned subject/course
                     $tchChk = $conn->prepare("SELECT id FROM teachers WHERE email = ?");
                     $tchChk->bind_param("s", $email);
                     $tchChk->execute();
                     if($tchChk->get_result()->num_rows === 0) {
-                        $insTch = $conn->prepare("INSERT INTO teachers (full_name, email, phone, subject, qualification) VALUES (?, ?, '', '', '')");
-                        $insTch->bind_param("ss", $full_name, $email);
+                        $insTch = $conn->prepare("INSERT INTO teachers (full_name, email, phone, subject, qualification) VALUES (?, ?, '', ?, '')");
+                        $insTch->bind_param("sss", $full_name, $email, $course);
                         $insTch->execute();
                     }
+
+                    // Optionally link teacher to course in courses table
+                    $updCourse = $conn->prepare("UPDATE courses SET teacher = ? WHERE course_name = ? AND (teacher IS NULL OR teacher = '' OR teacher = 'Unassigned')");
+                    if($updCourse) {
+                        $updCourse->bind_param("ss", $full_name, $course);
+                        $updCourse->execute();
+                    }
+
+                    $msgText = "Registration successful! Registered to teach " . addslashes($course) . ". Please login to continue.";
                 } else {
                     // Student profile with selected course
                     $stdChk = $conn->prepare("SELECT id FROM students WHERE email = ?");
@@ -91,10 +100,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                         $insStd->bind_param("sss", $full_name, $email, $course);
                         $insStd->execute();
                     }
+                    $msgText = "Registration successful! Enrolled in " . addslashes($course) . ". Please login to continue.";
                 }
 
                 echo "<script>
-                    alert('Registration successful! Enrolled in " . addslashes($course ?: 'Course') . ". Please login to continue.');
+                    alert('" . $msgText . "');
                     window.location.href = 'login.php';
                 </script>";
                 exit();
@@ -110,7 +120,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Campus CRM | Student Registration</title>
+<title>Smart Campus CRM | Registration</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -173,9 +183,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                 <i class="fa-solid fa-building-columns"></i>
             </div>
             <h1>Smart Campus <span>CRM</span></h1>
-            <p>Join Smart Campus CRM today. Select your course and access a seamless educational portal.</p>
+            <p>Join Smart Campus CRM today. Choose your course or subject and access a seamless educational portal.</p>
             <div class="features">
-                <div><i class="fa-solid fa-graduation-cap"></i> Student Course Enrollment</div>
+                <div><i class="fa-solid fa-graduation-cap"></i> Student & Teacher Course Assignment</div>
                 <div><i class="fa-solid fa-user-plus"></i> Clean Profile Setup</div>
                 <div><i class="fa-solid fa-shield-halved"></i> Secure Account Creation</div>
             </div>
@@ -218,13 +228,13 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                     </label>
                 </div>
 
-                <!-- Course Selection for Student -->
+                <!-- Course / Subject Selection for Student & Teacher -->
                 <div class="mb-3" id="courseWrapper">
                     <label class="form-label text-muted small mb-1 fw-medium" id="courseLabel">What course are you enrolling in?</label>
                     <div class="input-box" style="margin-bottom: 0;">
-                        <i class="fa-solid fa-graduation-cap"></i>
-                        <select name="course" id="courseSelect" class="course-select-style">
-                            <option value="">-- Choose Enrolling Course --</option>
+                        <i class="fa-solid fa-graduation-cap" id="courseIcon"></i>
+                        <select name="course" id="courseSelect" class="course-select-style" required>
+                            <option value="" id="defaultOption">-- Choose Course / Subject --</option>
                             <?php foreach($availableCourses as $c): ?>
                                 <option value="<?= htmlspecialchars($c) ?>" <?= ($_POST['course'] ?? '') === $c ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($c) ?>
@@ -236,7 +246,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 
                     <div class="input-box mt-2" id="customCourseBox" style="display: none; margin-bottom: 0;">
                         <i class="fa-solid fa-book"></i>
-                        <input type="text" name="custom_course" id="customCourseInput" placeholder="Specify Course Name" value="<?= htmlspecialchars($_POST['custom_course'] ?? '') ?>">
+                        <input type="text" name="custom_course" id="customCourseInput" placeholder="Specify Course / Subject Name" value="<?= htmlspecialchars($_POST['custom_course'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -270,7 +280,10 @@ const passInput         = document.getElementById('reg_password');
 const roleStudent       = document.getElementById('roleStudent');
 const roleTeacher       = document.getElementById('roleTeacher');
 const courseWrapper     = document.getElementById('courseWrapper');
+const courseLabel       = document.getElementById('courseLabel');
 const courseSelect      = document.getElementById('courseSelect');
+const courseIcon        = document.getElementById('courseIcon');
+const defaultOption     = document.getElementById('defaultOption');
 const customCourseBox   = document.getElementById('customCourseBox');
 const customCourseInput = document.getElementById('customCourseInput');
 
@@ -283,13 +296,19 @@ if(togglePass && passInput) {
     });
 }
 
-function updateCourseVisibility() {
+function updateCourseRoleLabels() {
     if(roleTeacher && roleTeacher.checked) {
-        courseWrapper.style.display = 'none';
-        if(courseSelect) courseSelect.required = false;
+        if(courseLabel) courseLabel.innerText = 'Which subject / course are you going to teach?';
+        if(defaultOption) defaultOption.innerText = '-- Choose Subject / Course to Teach --';
+        if(courseIcon) {
+            courseIcon.className = 'fa-solid fa-chalkboard-user';
+        }
     } else {
-        courseWrapper.style.display = 'block';
-        if(courseSelect) courseSelect.required = true;
+        if(courseLabel) courseLabel.innerText = 'What course are you enrolling in?';
+        if(defaultOption) defaultOption.innerText = '-- Choose Enrolling Course --';
+        if(courseIcon) {
+            courseIcon.className = 'fa-solid fa-graduation-cap';
+        }
     }
 }
 
@@ -304,9 +323,9 @@ function checkCustomCourse() {
 }
 
 if(roleStudent && roleTeacher) {
-    roleStudent.addEventListener('change', updateCourseVisibility);
-    roleTeacher.addEventListener('change', updateCourseVisibility);
-    updateCourseVisibility();
+    roleStudent.addEventListener('change', updateCourseRoleLabels);
+    roleTeacher.addEventListener('change', updateCourseRoleLabels);
+    updateCourseRoleLabels();
 }
 
 if(courseSelect) {

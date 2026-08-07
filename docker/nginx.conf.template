@@ -1,6 +1,6 @@
 server {
-    listen 80;
-    listen [::]:80;
+    listen PORT_PLACEHOLDER;
+    listen [::]:PORT_PLACEHOLDER;
     server_name _;
 
     root /var/www/html;
@@ -11,7 +11,7 @@ server {
     }
 
     location ~ \.php$ {
-        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_pass unix:/run/php-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         include fastcgi_params;

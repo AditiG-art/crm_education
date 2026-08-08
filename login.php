@@ -239,6 +239,12 @@ Login
 
 
 
+<?php if(isset($_SESSION['reg_success'])): ?>
+<div class="alert alert-success" style="border-radius:12px; font-size:13px; margin-bottom:16px;">
+    <i class="fa-solid fa-circle-check me-2"></i> <?= htmlspecialchars($_SESSION['reg_success']) ?>
+</div>
+<?php unset($_SESSION['reg_success']); endif; ?>
+
 <div class="bottom-text">
 
 Don't have an account?

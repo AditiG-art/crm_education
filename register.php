@@ -33,18 +33,68 @@ if(empty($availableCourses)) {
     $availableCourses = ['Computer Science', 'Data Science', 'Business Administration'];
 }
 
+// Fetch available colleges from database
+$availableColleges = [];
+$clgRes = mysqli_query($conn, "SELECT id, college_name, college_code FROM colleges ORDER BY id ASC");
+if($clgRes) {
+    while($clg = mysqli_fetch_assoc($clgRes)) {
+        $availableColleges[] = $clg;
+    }
+}
+if(empty($availableColleges)) {
+    $availableColleges = [
+        ['id' => 1, 'college_name' => 'Smart Campus Main Institute', 'college_code' => 'SCMI'],
+        ['id' => 2, 'college_name' => 'Apex Engineering College', 'college_code' => 'AEC'],
+        ['id' => 3, 'college_name' => 'Global Science & Business Academy', 'college_code' => 'GSBA']
+    ];
+}
+
 if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
-    $first_name    = trim($_POST['first_name'] ?? '');
-    $last_name     = trim($_POST['last_name'] ?? '');
-    $full_name     = trim($first_name . ' ' . $last_name);
-    $email         = trim($_POST['email'] ?? '');
-    $password      = $_POST['password'] ?? '';
-    $confirm       = $_POST['confirm_password'] ?? '';
-    $role          = $_POST['role'] ?? 'student';
-    $selectedCourse= trim($_POST['course'] ?? '');
-    $customCourse  = trim($_POST['custom_course'] ?? '');
+    $first_name        = trim($_POST['first_name'] ?? '');
+    $last_name         = trim($_POST['last_name'] ?? '');
+    $full_name         = trim($first_name . ' ' . $last_name);
+    $email             = trim($_POST['email'] ?? '');
+    $password          = $_POST['password'] ?? '';
+    $confirm           = $_POST['confirm_password'] ?? '';
+    $role              = $_POST['role'] ?? 'student';
+    $selectedCourse    = trim($_POST['course'] ?? '');
+    $customCourse      = trim($_POST['custom_course'] ?? '');
+    $selectedCollegeId = $_POST['college_id'] ?? 1;
+    $customCollegeName = trim($_POST['custom_college'] ?? '');
 
     $course = ($selectedCourse === 'Other' && !empty($customCourse)) ? $customCourse : $selectedCourse;
+
+    // Multi-College Resolution
+    $collegeId = 1;
+    $collegeName = "Smart Campus Main Institute";
+
+    if($selectedCollegeId === 'Other' && !empty($customCollegeName)) {
+        $cStmt = $conn->prepare("SELECT id, college_name FROM colleges WHERE college_name = ?");
+        $cStmt->bind_param("s", $customCollegeName);
+        $cStmt->execute();
+        $cRes = $cStmt->get_result();
+        if($cRes && $cRow = $cRes->fetch_assoc()) {
+            $collegeId = $cRow['id'];
+            $collegeName = $cRow['college_name'];
+        } else {
+            $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $customCollegeName), 0, 6)) ?: 'CLG' . rand(100, 999);
+            $insClg = $conn->prepare("INSERT INTO colleges (college_name, college_code, address) VALUES (?, ?, 'Main Campus')");
+            $insClg->bind_param("ss", $customCollegeName, $code);
+            if($insClg->execute()) {
+                $collegeId = $insClg->insert_id;
+                $collegeName = $customCollegeName;
+            }
+        }
+    } else {
+        $cid = (int)$selectedCollegeId;
+        foreach($availableColleges as $cObj) {
+            if((int)$cObj['id'] === $cid) {
+                $collegeId = $cObj['id'];
+                $collegeName = $cObj['college_name'];
+                break;
+            }
+        }
+    }
 
     if(empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
         $error = "Please fill in all required fields.";
@@ -68,9 +118,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
         } else {
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-            // Insert into users table
-            $insUser = $conn->prepare("INSERT INTO users (first_name, last_name, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?, 'Active')");
-            $insUser->bind_param("ssssss", $first_name, $last_name, $full_name, $email, $hashedPassword, $role);
+            // Insert into users table with college_id and college_name
+            $insUser = $conn->prepare("INSERT INTO users (college_id, college_name, first_name, last_name, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')");
+            $insUser->bind_param("isssssss", $collegeId, $collegeName, $first_name, $last_name, $full_name, $email, $hashedPassword, $role);
 
             if($insUser->execute()) {
                 $user_id = $insUser->insert_id;
@@ -81,8 +131,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                     $tchChk->bind_param("s", $email);
                     $tchChk->execute();
                     if($tchChk->get_result()->num_rows === 0) {
-                        $insTch = $conn->prepare("INSERT INTO teachers (first_name, last_name, full_name, email, phone, subject, qualification) VALUES (?, ?, ?, ?, '', ?, '')");
-                        $insTch->bind_param("sssss", $first_name, $last_name, $full_name, $email, $course);
+                        $insTch = $conn->prepare("INSERT INTO teachers (college_id, college_name, first_name, last_name, full_name, email, phone, subject, qualification) VALUES (?, ?, ?, ?, ?, ?, '', ?, '')");
+                        $insTch->bind_param("issssss", $collegeId, $collegeName, $first_name, $last_name, $full_name, $email, $course);
                         $insTch->execute();
                     }
 
@@ -93,30 +143,30 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                         $updCourse->execute();
                     }
 
-                    $msgText = "Registration successful as Teacher! Assigned to subject " . $course . ". Please login to continue.";
+                    $msgText = "Registration successful at " . $collegeName . " as Teacher! Assigned to subject " . $course . ". Please login to continue.";
                 } elseif($role === 'parent') {
                     // Parent profile creation
                     $prtChk = $conn->prepare("SELECT id FROM parents WHERE email = ?");
                     $prtChk->bind_param("s", $email);
                     $prtChk->execute();
                     if($prtChk->get_result()->num_rows === 0) {
-                        $insPrt = $conn->prepare("INSERT INTO parents (first_name, last_name, full_name, email, phone, address) VALUES (?, ?, ?, ?, '', '')");
-                        $insPrt->bind_param("ssss", $first_name, $last_name, $full_name, $email);
+                        $insPrt = $conn->prepare("INSERT INTO parents (college_id, college_name, first_name, last_name, full_name, email, phone, address) VALUES (?, ?, ?, ?, ?, ?, '', '')");
+                        $insPrt->bind_param("isssss", $collegeId, $collegeName, $first_name, $last_name, $full_name, $email);
                         $insPrt->execute();
                     }
 
-                    $msgText = "Registration successful as Parent! Account linked with surname '" . $last_name . "'. Please login to view your child's portal.";
+                    $msgText = "Registration successful at " . $collegeName . " as Parent! Account linked with surname '" . $last_name . "'. Please login to view your child's portal.";
                 } else {
                     // Student profile with selected course
                     $stdChk = $conn->prepare("SELECT id FROM students WHERE email = ?");
                     $stdChk->bind_param("s", $email);
                     $stdChk->execute();
                     if($stdChk->get_result()->num_rows === 0) {
-                        $insStd = $conn->prepare("INSERT INTO students (first_name, last_name, full_name, email, phone, gender, date_of_birth, course, address) VALUES (?, ?, ?, ?, '', '', NULL, ?, '')");
-                        $insStd->bind_param("sssss", $first_name, $last_name, $full_name, $email, $course);
+                        $insStd = $conn->prepare("INSERT INTO students (college_id, college_name, first_name, last_name, full_name, email, phone, gender, date_of_birth, course, address) VALUES (?, ?, ?, ?, ?, ?, '', '', NULL, ?, '')");
+                        $insStd->bind_param("issssss", $collegeId, $collegeName, $first_name, $last_name, $full_name, $email, $course);
                         $insStd->execute();
                     }
-                    $msgText = "Registration successful as Student! Enrolled in " . $course . ". Please login to continue.";
+                    $msgText = "Registration successful at " . $collegeName . " as Student! Enrolled in " . $course . ". Please login to continue.";
                 }
 
                 echo "<script>
@@ -193,16 +243,6 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 .two-cols .input-box {
     flex: 1;
 }
-.parent-info-alert {
-    background: #EFF6FF;
-    border: 1px solid #BFDBFE;
-    color: #1E40AF;
-    font-size: 13px;
-    border-radius: 12px;
-    padding: 10px 14px;
-    margin-bottom: 16px;
-    display: none;
-}
 </style>
 </head>
 <body>
@@ -216,10 +256,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                 <i class="fa-solid fa-building-columns"></i>
             </div>
             <h1>Smart Campus</h1>
-            <p>Join Smart Campus today. Select your account type—Student, Parent, or Teacher—and access an integrated educational portal.</p>
+            <p>Join Smart Campus today. Select your College, choose your account type—Student, Parent, or Teacher—and access an integrated educational portal.</p>
             <div class="features">
+                <div><i class="fa-solid fa-building-columns"></i> Multi-College & Campus Support</div>
                 <div><i class="fa-solid fa-graduation-cap"></i> Student & Teacher Course Assignment</div>
-                <div><i class="fa-solid fa-users"></i> Automatic Parent-Child Linking by Surname</div>
+                <div><i class="fa-solid fa-users"></i> Automatic Parent-Child Surname Linking</div>
                 <div><i class="fa-solid fa-shield-halved"></i> Secure Account Creation</div>
             </div>
         </div>
@@ -253,6 +294,27 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
                         <input type="radio" name="role" value="teacher" id="roleTeacher" <?= ($_POST['role'] ?? '') === 'teacher' ? 'checked' : '' ?>>
                         <i class="fa-solid fa-chalkboard-user me-1"></i> Teacher
                     </label>
+                </div>
+
+                <!-- College / Campus Selection -->
+                <div class="mb-3" id="collegeWrapper">
+                    <label class="form-label text-muted small mb-1 fw-medium">Select College / Institution:</label>
+                    <div class="input-box" style="margin-bottom: 0;">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <select name="college_id" id="collegeSelect" class="course-select-style" required>
+                            <?php foreach($availableColleges as $clg): ?>
+                                <option value="<?= $clg['id'] ?>" <?= (string)($_POST['college_id'] ?? 1) === (string)$clg['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($clg['college_name']) ?> (<?= htmlspecialchars($clg['college_code']) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="Other" <?= ($_POST['college_id'] ?? '') === 'Other' ? 'selected' : '' ?>>Other / Register New College</option>
+                        </select>
+                    </div>
+
+                    <div class="input-box mt-2" id="customCollegeBox" style="display: none; margin-bottom: 0;">
+                        <i class="fa-solid fa-hotel"></i>
+                        <input type="text" name="custom_college" id="customCollegeInput" placeholder="Specify New College Name" value="<?= htmlspecialchars($_POST['custom_college'] ?? '') ?>">
+                    </div>
                 </div>
 
                 <!-- First Name and Last Name -->
@@ -331,6 +393,9 @@ const courseIcon        = document.getElementById('courseIcon');
 const defaultOption     = document.getElementById('defaultOption');
 const customCourseBox   = document.getElementById('customCourseBox');
 const customCourseInput = document.getElementById('customCourseInput');
+const collegeSelect     = document.getElementById('collegeSelect');
+const customCollegeBox  = document.getElementById('customCollegeBox');
+const customCollegeInput= document.getElementById('customCollegeInput');
 
 if(togglePass && passInput) {
     togglePass.addEventListener('click', () => {
@@ -339,6 +404,21 @@ if(togglePass && passInput) {
         togglePass.classList.toggle('fa-eye');
         togglePass.classList.toggle('fa-eye-slash');
     });
+}
+
+function checkCustomCollege() {
+    if(collegeSelect && collegeSelect.value === 'Other') {
+        customCollegeBox.style.display = 'block';
+        if(customCollegeInput) customCollegeInput.required = true;
+    } else {
+        customCollegeBox.style.display = 'none';
+        if(customCollegeInput) customCollegeInput.required = false;
+    }
+}
+
+if(collegeSelect) {
+    collegeSelect.addEventListener('change', checkCustomCollege);
+    checkCustomCollege();
 }
 
 function updateCourseRoleLabels() {

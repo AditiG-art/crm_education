@@ -19,7 +19,11 @@ if(!$parent) {
 }
 
 $surEscaped = mysqli_real_escape_string($conn, trim($parentSurname));
-$childrenRes = mysqli_query($conn, "SELECT * FROM students WHERE last_name = '$surEscaped' OR full_name LIKE '% $surEscaped' ORDER BY id ASC");
+$clgId = (int)($parent['college_id'] ?? ($_SESSION['college_id'] ?? 1));
+$childrenRes = mysqli_query($conn, "SELECT * FROM students WHERE (last_name = '$surEscaped' OR full_name LIKE '% $surEscaped') AND (college_id = '$clgId' OR college_id = 0 OR college_id IS NULL) ORDER BY id ASC");
+if(!$childrenRes || mysqli_num_rows($childrenRes) === 0) {
+    $childrenRes = mysqli_query($conn, "SELECT * FROM students WHERE last_name = '$surEscaped' OR full_name LIKE '% $surEscaped' ORDER BY id ASC");
+}
 $children = [];
 if($childrenRes) {
     while($ch = mysqli_fetch_assoc($childrenRes)) {

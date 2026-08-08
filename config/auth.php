@@ -58,6 +58,8 @@ if(isset($_POST['login']))
             $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['user_id'] = $user['id'];
+            $_SESSION['college_id'] = $user['college_id'] ?? 1;
+            $_SESSION['college_name'] = $user['college_name'] ?? 'Smart Campus Main Institute';
 
             if($user['role'] == "admin")
             {

@@ -8,6 +8,7 @@ if(session_status() == PHP_SESSION_NONE)
 $titleText = isset($pageTitle) ? $pageTitle : "Dashboard";
 $userName = isset($_SESSION['user']) ? htmlspecialchars($_SESSION['user']) : "User";
 $userRole = isset($_SESSION['role']) ? ucfirst(htmlspecialchars($_SESSION['role'])) : "Administrator";
+$collegeName = isset($_SESSION['college_name']) ? htmlspecialchars($_SESSION['college_name']) : "Smart Campus Main Institute";
 
 // Fetch dynamic notifications if DB connection exists
 $notifications = [];
@@ -49,6 +50,13 @@ if(empty($notifications)) {
     </div>
 
     <div class="topbar-right">
+        <!-- College Badge -->
+        <div class="d-none d-md-flex align-items-center">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill" style="font-size:12px;font-weight:600;">
+                <i class="fa-solid fa-building-columns me-1"></i> <?php echo $collegeName; ?>
+            </span>
+        </div>
+
         <!-- Interactive Notifications -->
         <div class="crm-dropdown-container">
             <div class="notification notification-trigger" title="Notifications">

@@ -48,8 +48,18 @@ $conn->set_charset("utf8mb4");
 
 // Auto Table Schema Setup
 $tables = [
+    "CREATE TABLE IF NOT EXISTS colleges (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        college_name VARCHAR(150) UNIQUE NOT NULL,
+        college_code VARCHAR(30) UNIQUE NOT NULL,
+        address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
     "CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        college_id INT DEFAULT 1,
+        college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute',
         first_name VARCHAR(50),
         last_name VARCHAR(50),
         full_name VARCHAR(100) NOT NULL,
@@ -62,6 +72,8 @@ $tables = [
 
     "CREATE TABLE IF NOT EXISTS students (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        college_id INT DEFAULT 1,
+        college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute',
         first_name VARCHAR(50),
         last_name VARCHAR(50),
         full_name VARCHAR(100) NOT NULL,
@@ -76,6 +88,8 @@ $tables = [
 
     "CREATE TABLE IF NOT EXISTS teachers (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        college_id INT DEFAULT 1,
+        college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute',
         first_name VARCHAR(50),
         last_name VARCHAR(50),
         full_name VARCHAR(100) NOT NULL,
@@ -88,6 +102,8 @@ $tables = [
 
     "CREATE TABLE IF NOT EXISTS parents (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        college_id INT DEFAULT 1,
+        college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute',
         first_name VARCHAR(50),
         last_name VARCHAR(50),
         full_name VARCHAR(100) NOT NULL,
@@ -99,6 +115,8 @@ $tables = [
 
     "CREATE TABLE IF NOT EXISTS courses (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        college_id INT DEFAULT 1,
+        college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute',
         course_name VARCHAR(100) NOT NULL,
         duration VARCHAR(50),
         fees VARCHAR(50),
@@ -177,12 +195,22 @@ foreach($tables as $sql) {
 // Auto-migration checks for existing databases (wrapped in try-catch for strict PHP 8.1+ / MySQL error mode)
 $migrations = [
     "ALTER TABLE users MODIFY COLUMN role ENUM('admin','teacher','student','parent') NOT NULL DEFAULT 'student'",
+    "ALTER TABLE users ADD COLUMN college_id INT DEFAULT 1",
+    "ALTER TABLE users ADD COLUMN college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute'",
     "ALTER TABLE users ADD COLUMN first_name VARCHAR(50) AFTER id",
     "ALTER TABLE users ADD COLUMN last_name VARCHAR(50) AFTER first_name",
+    "ALTER TABLE students ADD COLUMN college_id INT DEFAULT 1",
+    "ALTER TABLE students ADD COLUMN college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute'",
     "ALTER TABLE students ADD COLUMN first_name VARCHAR(50) AFTER id",
     "ALTER TABLE students ADD COLUMN last_name VARCHAR(50) AFTER first_name",
+    "ALTER TABLE teachers ADD COLUMN college_id INT DEFAULT 1",
+    "ALTER TABLE teachers ADD COLUMN college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute'",
     "ALTER TABLE teachers ADD COLUMN first_name VARCHAR(50) AFTER id",
     "ALTER TABLE teachers ADD COLUMN last_name VARCHAR(50) AFTER first_name",
+    "ALTER TABLE parents ADD COLUMN college_id INT DEFAULT 1",
+    "ALTER TABLE parents ADD COLUMN college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute'",
+    "ALTER TABLE courses ADD COLUMN college_id INT DEFAULT 1",
+    "ALTER TABLE courses ADD COLUMN college_name VARCHAR(150) DEFAULT 'Smart Campus Main Institute'",
     "UPDATE students SET first_name = 'Alex', last_name = 'Rivera' WHERE full_name = 'Alex Rivera' AND (last_name IS NULL OR last_name = '')",
     "UPDATE students SET first_name = 'Sophia', last_name = 'Chen' WHERE full_name = 'Sophia Chen' AND (last_name IS NULL OR last_name = '')",
     "UPDATE students SET first_name = 'Marcus', last_name = 'Webb' WHERE full_name = 'Marcus Webb' AND (last_name IS NULL OR last_name = '')",
@@ -196,6 +224,17 @@ foreach($migrations as $mSql) {
         // Migration statement already applied or duplicate column ignored
     }
 }
+
+// Seed default colleges if empty
+try {
+    $clgCheck = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM colleges");
+    if($clgCheck && mysqli_fetch_assoc($clgCheck)['cnt'] == 0) {
+        mysqli_query($conn, "INSERT INTO colleges (id, college_name, college_code, address) VALUES 
+            (1, 'Smart Campus Main Institute', 'SCMI', '100 University Ave, Campus City'),
+            (2, 'Apex Engineering College', 'AEC', '45 Tech Park Road, Silicon Bay'),
+            (3, 'Global Science & Business Academy', 'GSBA', '78 Academy Boulevard, Metro West')");
+    }
+} catch (Throwable $e) {}
 
 // Seed default users if empty
 $userCheck = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM users");

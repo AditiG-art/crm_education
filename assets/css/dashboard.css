@@ -175,15 +175,16 @@ img { max-width: 100%; }
 /* ══════════════════════════════════════════════════
    MAIN CONTENT WRAPPER
 ══════════════════════════════════════════════════ */
-.main {
+.main, .main-content {
   margin-left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
   min-height: 100vh;
   padding: 28px 32px;
   background: var(--body-bg);
   transition: var(--transition);
 }
 
-.wrapper { display: flex; min-height: 100vh; }
+.wrapper { display: block; width: 100%; min-height: 100vh; }
 
 /* ══════════════════════════════════════════════════
    TOPBAR
@@ -1039,7 +1040,7 @@ img { max-width: 100%; }
     --sidebar-width: 270px;
   }
 
-  .main {
+  .main, .main-content {
     margin-left: 0 !important;
     padding: 16px 14px !important;
     width: 100% !important;

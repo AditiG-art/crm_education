@@ -41,7 +41,7 @@ $typeConfig = [
     ],
     'institute' => [
         'title'    => 'Register University / High School / Institution',
-        'subtitle' => 'Create a brand-new campus ecosystem with 100% clean data and Administrator control.',
+        'subtitle' => 'Create a brand-new campus ecosystem with 100% clean data and Administrator control tower.',
         'icon'     => 'fa-building-columns',
         'badge'    => 'Campus Administrator'
     ]
@@ -55,7 +55,8 @@ function getOrCreateCollege($conn, $instName) {
     $instName = trim($instName);
     if(empty($instName)) return [1, 'Smart Campus Main Institute'];
 
-    $cChk = $conn->prepare("SELECT id, college_name FROM colleges WHERE college_name = ?");
+    // Case-insensitive check
+    $cChk = $conn->prepare("SELECT id, college_name FROM colleges WHERE LOWER(college_name) = LOWER(?)");
     $cChk->bind_param("s", $instName);
     $cChk->execute();
     $cRes = $cChk->get_result();
@@ -84,6 +85,25 @@ function getOrCreateCollege($conn, $instName) {
     return [1, 'Smart Campus Main Institute'];
 }
 
+// Function to fetch available colleges
+function loadAvailableColleges($conn) {
+    $list = [];
+    $clgRes = mysqli_query($conn, "SELECT id, college_name, college_code FROM colleges ORDER BY id ASC");
+    if ($clgRes) {
+        while ($clg = mysqli_fetch_assoc($clgRes)) {
+            $list[] = $clg;
+        }
+    }
+    if (empty($list)) {
+        $list = [
+            ['id' => 1, 'college_name' => 'Smart Campus Main Institute', 'college_code' => 'SCMI'],
+            ['id' => 2, 'college_name' => 'Apex Engineering College', 'college_code' => 'AEC'],
+            ['id' => 3, 'college_name' => 'Global Science & Business Academy', 'college_code' => 'GSBA']
+        ];
+    }
+    return $list;
+}
+
 // Fetch available courses
 $availableCourses = [];
 $cRes = mysqli_query($conn, "SELECT course_name FROM courses ORDER BY course_name ASC");
@@ -96,27 +116,11 @@ if (empty($availableCourses)) {
     $availableCourses = ['Computer Science', 'Data Science', 'Business Administration', 'Mechanical Engineering'];
 }
 
-// Fetch available colleges from database
-$availableColleges = [];
-$clgRes = mysqli_query($conn, "SELECT id, college_name, college_code FROM colleges ORDER BY id ASC");
-if ($clgRes) {
-    while ($clg = mysqli_fetch_assoc($clgRes)) {
-        $availableColleges[] = $clg;
-    }
-}
-if (empty($availableColleges)) {
-    $availableColleges = [
-        ['id' => 1, 'college_name' => 'Smart Campus Main Institute', 'college_code' => 'SCMI'],
-        ['id' => 2, 'college_name' => 'Apex Engineering College', 'college_code' => 'AEC'],
-        ['id' => 3, 'college_name' => 'Global Science & Business Academy', 'college_code' => 'GSBA']
-    ];
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email     = trim($_POST['email'] ?? '');
     $password  = $_POST['password'] ?? '';
     $fullName  = trim($_POST['full_name'] ?? '');
-    $phone     = trim($_POST['phone'] ?? '');
+    $phone     = trim($_POST['phone_number_tel'] ?? $_POST['phone'] ?? '');
 
     // Extract first and last name
     $nameParts = explode(' ', $fullName);
@@ -142,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($type === 'institute') {
                 $instName = trim($_POST['institute_name'] ?? '');
                 if (empty($instName)) {
-                    $errorMsg = "Please enter the Institute / University Name.";
+                    $errorMsg = "Please enter the Institute / University / High School Name.";
                 } else {
                     list($collegeId, $collegeName) = getOrCreateCollege($conn, $instName);
 
@@ -170,7 +174,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $cid = (int)$selCollegeId;
                     $collegeId = 1;
                     $collegeName = "Smart Campus Main Institute";
-                    foreach ($availableColleges as $cObj) {
+                    $allColleges = loadAvailableColleges($conn);
+                    foreach ($allColleges as $cObj) {
                         if ((int)$cObj['id'] === $cid) {
                             $collegeId = $cObj['id'];
                             $collegeName = $cObj['college_name'];
@@ -213,6 +218,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// Load colleges for rendering
+$availableColleges = loadAvailableColleges($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -248,8 +256,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 * { margin:0; padding:0; box-sizing:border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
 
 body {
-    background: var(--body-bg);
-    color: var(--text-dark);
+    background-color: var(--body-bg) !important;
+    color: var(--text-dark) !important;
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -309,18 +317,18 @@ body {
 .form-wrapper {
     max-width: 640px;
     width: 100%;
-    background: var(--card-bg);
+    background-color: var(--card-bg) !important;
     border-radius: 28px;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
     overflow: hidden;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--border-color) !important;
     position: relative;
     z-index: 1;
 }
 
 .form-header {
-    background: linear-gradient(135deg, #1E293B, #0F172A);
-    color: white;
+    background: linear-gradient(135deg, #1E293B, #0F172A) !important;
+    color: white !important;
     padding: 36px 36px 28px;
     position: relative;
 }
@@ -329,14 +337,14 @@ body {
     position: absolute;
     top: 24px; right: 24px;
     width: 36px; height: 36px;
-    background: rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.15) !important;
     border-radius: 50%;
-    color: white;
+    color: white !important;
     display: flex; align-items: center; justify-content: center;
     text-decoration: none;
     transition: 0.2s;
 }
-.back-btn:hover { background: rgba(255,255,255,0.25); color: white; }
+.back-btn:hover { background: rgba(255,255,255,0.3) !important; color: white !important; }
 
 .form-header-icon {
     width: 54px; height: 54px;
@@ -353,16 +361,17 @@ body {
     font-size: 26px;
     font-weight: 800;
     margin-bottom: 6px;
-    color: white;
+    color: white !important;
 }
 .form-header p {
-    color: #94A3B8;
+    color: #94A3B8 !important;
     font-size: 14px;
     margin: 0;
 }
 
 .form-body {
     padding: 36px;
+    background-color: var(--card-bg) !important;
 }
 
 .field-group {
@@ -371,7 +380,7 @@ body {
 .field-label {
     font-size: 13.5px;
     font-weight: 600;
-    color: var(--text-dark);
+    color: var(--text-dark) !important;
     margin-bottom: 8px;
     display: block;
 }
@@ -383,7 +392,7 @@ body {
     position: absolute;
     left: 18px; top: 50%;
     transform: translateY(-50%);
-    color: var(--primary);
+    color: #3B82F6;
     font-size: 16px;
 }
 
@@ -391,21 +400,23 @@ body {
     width: 100%;
     padding: 14px 18px 14px 50px;
     border-radius: 14px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--border-color) !important;
     font-size: 14.5px;
-    background: var(--input-bg);
-    color: var(--text-dark);
+    background-color: var(--input-bg) !important;
+    color: var(--text-dark) !important;
     outline: none;
     transition: 0.3s;
 }
 .form-control-crm:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(37,99,235,0.2);
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.2) !important;
 }
 
+/* Ensure dropdown options are crisp and dark in Dark Mode */
 select.form-control-crm option {
-    background-color: var(--card-bg);
-    color: var(--text-dark);
+    background-color: var(--card-bg) !important;
+    color: var(--text-dark) !important;
+    padding: 10px;
 }
 
 .form-grid-2 {
@@ -417,7 +428,7 @@ select.form-control-crm option {
 .btn-submit {
     width: 100%;
     background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    color: white;
+    color: white !important;
     font-weight: 700;
     font-size: 16px;
     padding: 16px;
@@ -494,7 +505,7 @@ select.form-control-crm option {
 
             <?php if ($type === 'institute'): ?>
                 <div class="field-group">
-                    <label class="field-label">University / High School / Institute Name *</label>
+                    <label class="field-label">University / High School / Institution Name *</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-building-columns"></i>
                         <input type="text" name="institute_name" class="form-control-crm" placeholder="e.g. Oxford High School & College" required>
@@ -507,7 +518,7 @@ select.form-control-crm option {
                     <div class="input-with-icon">
                         <i class="fa-solid fa-building-columns"></i>
                         <select name="college_id" id="collegeSelect" class="form-control-crm" required>
-                            <option value="">-- Choose University / College --</option>
+                            <option value="">-- Choose University / High School / College --</option>
                             <?php foreach ($availableColleges as $clg): ?>
                                 <option value="<?= $clg['id'] ?>">
                                     <?= htmlspecialchars($clg['college_name']) ?> (<?= htmlspecialchars($clg['college_code']) ?>)
@@ -519,10 +530,10 @@ select.form-control-crm option {
                 </div>
 
                 <div class="field-group" id="customCollegeBox" style="display: none;">
-                    <label class="field-label">Specify New Campus Name *</label>
+                    <label class="field-label">Specify New Campus / Institution Name *</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-hotel"></i>
-                        <input type="text" name="custom_college" id="customCollegeInput" class="form-control-crm" placeholder="Enter New Campus Name">
+                        <input type="text" name="custom_college" id="customCollegeInput" class="form-control-crm" placeholder="Enter New Campus / High School Name">
                     </div>
                 </div>
             <?php endif; ?>
@@ -548,7 +559,7 @@ select.form-control-crm option {
                     <label class="field-label">Phone Number</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-phone"></i>
-                        <input type="tel" name="phone" id="userPhoneInput" class="form-control-crm" placeholder="+1 555-0199" autocomplete="tel">
+                        <input type="tel" name="phone_number_tel" id="userPhoneTel" class="form-control-crm" placeholder="+1 555-0199" autocomplete="tel">
                     </div>
                 </div>
             </div>

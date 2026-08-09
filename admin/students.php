@@ -246,20 +246,19 @@ while($c = mysqli_fetch_assoc($courseList)) {
 
 <?php
 if(mysqli_num_rows($result) > 0) {
-    $sn = 1;
-    while($row = mysqli_fetch_assoc($result)) {
-        $studentData = [
-            'ID' => $row['id'],
-            'SN' => $sn,
-            'Name' => $row['full_name'],
-            'Email' => $row['email'],
-            'Phone' => $row['phone'],
-            'Gender' => $row['gender'],
-            'DOB' => $row['date_of_birth'],
-            'Course' => $row['course'],
-            'Address' => $row['address']
-        ];
-        $studentJson = htmlspecialchars(json_encode($studentData), ENT_QUOTES, 'UTF-8');
+$sn = 1;
+while($row = mysqli_fetch_assoc($result)) {
+    $detailJson = htmlspecialchars(json_encode([
+        'ID' => $sn,
+        'DatabaseID' => $row['id'],
+        'Name' => $row['full_name'],
+        'Email' => $row['email'],
+        'Phone' => $row['phone'],
+        'Gender' => $row['gender'],
+        'DOB' => $row['date_of_birth'],
+        'Course' => $row['course'],
+        'Address' => $row['address']
+    ]), ENT_QUOTES, 'UTF-8');
 ?>
 
 <tr>
@@ -273,7 +272,7 @@ if(mysqli_num_rows($result) > 0) {
 
 <td>
 <div class="btn-group btn-group-sm">
-<button type="button" class="btn btn-info text-white" title="Quick View" data-student="<?php echo $studentJson; ?>" onclick="viewStudentDetails(this)">
+<button type="button" class="btn btn-info text-white" title="Quick View" onclick='viewStudentDetails(<?php echo $detailJson; ?>)'>
 <i class="fa-solid fa-eye"></i>
 </button>
 <a href="edit_student.php?id=<?php echo $row['id']; ?>" class="btn btn-warning" title="Edit">
@@ -287,7 +286,7 @@ if(mysqli_num_rows($result) > 0) {
 </tr>
 
 <?php
-    }
+}
 } else {
 ?>
 <tr>
@@ -305,15 +304,7 @@ if(mysqli_num_rows($result) > 0) {
 </div>
 
 <script>
-function viewStudentDetails(btn) {
-    let data;
-    try {
-        data = typeof btn === 'string' ? JSON.parse(btn) : JSON.parse(btn.getAttribute('data-student'));
-    } catch(e) {
-        console.error('Invalid student data', e);
-        return;
-    }
-
+function viewStudentDetails(data) {
     let html = `
         <div class="p-2">
             <div class="text-center mb-3">
@@ -322,8 +313,7 @@ function viewStudentDetails(btn) {
                 <span class="badge-crm-enrolled">Active Student</span>
             </div>
             <table class="table table-bordered">
-                <tr><th>Serial No</th><td>#${escapeHtml(data.SN)}</td></tr>
-                <tr><th>Student DB ID</th><td>#${escapeHtml(data.ID)}</td></tr>
+                <tr><th>Serial No</th><td>#${escapeHtml(data.ID)}</td></tr>
                 <tr><th>Email</th><td>${escapeHtml(data.Email)}</td></tr>
                 <tr><th>Phone</th><td>${escapeHtml(data.Phone || 'N/A')}</td></tr>
                 <tr><th>Gender</th><td>${escapeHtml(data.Gender || 'N/A')}</td></tr>

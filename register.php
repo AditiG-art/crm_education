@@ -2,13 +2,182 @@
 session_start();
 include "config/db.php";
 
-if (isset($_SESSION['user']) && isset($_SESSION['role'])) {
-    if ($_SESSION['role'] == "admin") {
-        header("Location: admin/dashboard.php"); exit();
-    } elseif ($_SESSION['role'] == "teacher") {
-        header("Location: teacher/dashboard.php"); exit();
-    } elseif ($_SESSION['role'] == "student") {
-        header("Location: student/dashboard.php"); exit();
+if(isset($_SESSION['user']) && isset($_SESSION['role'])) {
+    if($_SESSION['role'] == "admin") {
+        header("Location: admin/dashboard.php");
+        exit();
+    } elseif($_SESSION['role'] == "teacher") {
+        header("Location: teacher/dashboard.php");
+        exit();
+    } elseif($_SESSION['role'] == "student") {
+        header("Location: student/dashboard.php");
+        exit();
+    } elseif($_SESSION['role'] == "parent") {
+        header("Location: parent/dashboard.php");
+        exit();
+    }
+}
+
+$error = "";
+$success = "";
+
+// Fetch available courses from database
+$availableCourses = [];
+$cRes = mysqli_query($conn, "SELECT course_name FROM courses ORDER BY course_name ASC");
+if($cRes) {
+    while($cr = mysqli_fetch_assoc($cRes)) {
+        $availableCourses[] = $cr['course_name'];
+    }
+}
+if(empty($availableCourses)) {
+    $availableCourses = ['Computer Science', 'Data Science', 'Business Administration'];
+}
+
+// Fetch available colleges from database
+$availableColleges = [];
+$clgRes = mysqli_query($conn, "SELECT id, college_name, college_code FROM colleges ORDER BY id ASC");
+if($clgRes) {
+    while($clg = mysqli_fetch_assoc($clgRes)) {
+        $availableColleges[] = $clg;
+    }
+}
+if(empty($availableColleges)) {
+    $availableColleges = [
+        ['id' => 1, 'college_name' => 'Smart Campus Main Institute', 'college_code' => 'SCMI'],
+        ['id' => 2, 'college_name' => 'Apex Engineering College', 'college_code' => 'AEC'],
+        ['id' => 3, 'college_name' => 'Global Science & Business Academy', 'college_code' => 'GSBA']
+    ];
+}
+
+if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
+    $first_name        = trim($_POST['first_name'] ?? '');
+    $last_name         = trim($_POST['last_name'] ?? '');
+    $full_name         = trim($first_name . ' ' . $last_name);
+    $email             = trim($_POST['email'] ?? '');
+    $password          = $_POST['password'] ?? '';
+    $confirm           = $_POST['confirm_password'] ?? '';
+    $role              = $_POST['role'] ?? 'student';
+    $selectedCourse    = trim($_POST['course'] ?? '');
+    $customCourse      = trim($_POST['custom_course'] ?? '');
+    $selectedCollegeId = $_POST['college_id'] ?? 1;
+    $customCollegeName = trim($_POST['custom_college'] ?? '');
+
+    $course = ($selectedCourse === 'Other' && !empty($customCourse)) ? $customCourse : $selectedCourse;
+
+    // Multi-College Resolution
+    $collegeId = 1;
+    $collegeName = "Smart Campus Main Institute";
+
+    if($selectedCollegeId === 'Other' && !empty($customCollegeName)) {
+        $cStmt = $conn->prepare("SELECT id, college_name FROM colleges WHERE college_name = ?");
+        $cStmt->bind_param("s", $customCollegeName);
+        $cStmt->execute();
+        $cRes = $cStmt->get_result();
+        if($cRes && $cRow = $cRes->fetch_assoc()) {
+            $collegeId = $cRow['id'];
+            $collegeName = $cRow['college_name'];
+        } else {
+            $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $customCollegeName), 0, 6)) ?: 'CLG' . rand(100, 999);
+            $insClg = $conn->prepare("INSERT INTO colleges (college_name, college_code, address) VALUES (?, ?, 'Main Campus')");
+            $insClg->bind_param("ss", $customCollegeName, $code);
+            if($insClg->execute()) {
+                $collegeId = $insClg->insert_id;
+                $collegeName = $customCollegeName;
+            }
+        }
+    } else {
+        $cid = (int)$selectedCollegeId;
+        foreach($availableColleges as $cObj) {
+            if((int)$cObj['id'] === $cid) {
+                $collegeId = $cObj['id'];
+                $collegeName = $cObj['college_name'];
+                break;
+            }
+        }
+    }
+
+    if(empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
+        $error = "Please fill in all required fields.";
+    } elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Invalid email address.";
+    } elseif(($role === 'student' || $role === 'teacher') && empty($course)) {
+        $error = ($role === 'teacher') ? "Please select or specify the subject/course you are going to teach." : "Please select or specify the course you are enrolling in.";
+    } elseif($password !== $confirm) {
+        $error = "Passwords do not match.";
+    } elseif(strlen($password) < 6) {
+        $error = "Password must be at least 6 characters long.";
+    } else {
+        // Check if email already exists in users
+        $chkStmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+        $chkStmt->bind_param("s", $email);
+        $chkStmt->execute();
+        $chkRes = $chkStmt->get_result();
+
+        if($chkRes && $chkRes->num_rows > 0) {
+            $error = "An account with this email address already exists.";
+        } else {
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+            // Insert into users table with college_id and college_name
+            $insUser = $conn->prepare("INSERT INTO users (college_id, college_name, first_name, last_name, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')");
+            $insUser->bind_param("isssssss", $collegeId, $collegeName, $first_name, $last_name, $full_name, $email, $hashedPassword, $role);
+
+            if($insUser->execute()) {
+                $user_id = $insUser->insert_id;
+
+                // Create profile based on role
+                if($role === 'teacher') {
+                    $tchChk = $conn->prepare("SELECT id FROM teachers WHERE email = ?");
+                    $tchChk->bind_param("s", $email);
+                    $tchChk->execute();
+                    if($tchChk->get_result()->num_rows === 0) {
+                        $insTch = $conn->prepare("INSERT INTO teachers (college_id, college_name, first_name, last_name, full_name, email, phone, subject, qualification) VALUES (?, ?, ?, ?, ?, ?, '', ?, '')");
+                        $insTch->bind_param("issssss", $collegeId, $collegeName, $first_name, $last_name, $full_name, $email, $course);
+                        $insTch->execute();
+                    }
+
+                    // Link teacher to course if unassigned
+                    $updCourse = $conn->prepare("UPDATE courses SET teacher = ? WHERE course_name = ? AND (teacher IS NULL OR teacher = '' OR teacher = 'Unassigned')");
+                    if($updCourse) {
+                        $updCourse->bind_param("ss", $full_name, $course);
+                        $updCourse->execute();
+                    }
+
+                    $msgText = "Registration successful at " . $collegeName . " as Teacher! Assigned to subject " . $course . ". Please login to continue.";
+                } elseif($role === 'parent') {
+                    // Parent profile creation
+                    $prtChk = $conn->prepare("SELECT id FROM parents WHERE email = ?");
+                    $prtChk->bind_param("s", $email);
+                    $prtChk->execute();
+                    if($prtChk->get_result()->num_rows === 0) {
+                        $insPrt = $conn->prepare("INSERT INTO parents (college_id, college_name, first_name, last_name, full_name, email, phone, address) VALUES (?, ?, ?, ?, ?, ?, '', '')");
+                        $insPrt->bind_param("isssss", $collegeId, $collegeName, $first_name, $last_name, $full_name, $email);
+                        $insPrt->execute();
+                    }
+
+                    $msgText = "Registration successful at " . $collegeName . " as Parent! Account linked with surname '" . $last_name . "'. Please login to view your child's portal.";
+                } else {
+                    // Student profile with selected course
+                    $stdChk = $conn->prepare("SELECT id FROM students WHERE email = ?");
+                    $stdChk->bind_param("s", $email);
+                    $stdChk->execute();
+                    if($stdChk->get_result()->num_rows === 0) {
+                        $insStd = $conn->prepare("INSERT INTO students (college_id, college_name, first_name, last_name, full_name, email, phone, gender, date_of_birth, course, address) VALUES (?, ?, ?, ?, ?, ?, '', '', NULL, ?, '')");
+                        $insStd->bind_param("issssss", $collegeId, $collegeName, $first_name, $last_name, $full_name, $email, $course);
+                        $insStd->execute();
+                    }
+                    $msgText = "Registration successful at " . $collegeName . " as Student! Enrolled in " . $course . ". Please login to continue.";
+                }
+
+                echo "<script>
+                    alert(" . json_encode($msgText) . ");
+                    window.location.href = 'login.php';
+                </script>";
+                exit();
+            } else {
+                $error = "Registration failed. Please try again.";
+            }
+        }
     }
 }
 ?>
@@ -17,382 +186,280 @@ if (isset($_SESSION['user']) && isset($_SESSION['role'])) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Select Account Type | Smart Campus CRM</title>
+<title>Smart Campus | Registration</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/login.css">
 <style>
-:root {
-    --primary: #2563EB;
-    --primary-dark: #1E40AF;
-    --primary-light: #EFF6FF;
-    --accent: #F59E0B;
-    --body-bg: #F0F4FF;
-    --text-dark: #0F172A;
-    --text-muted: #64748B;
-    --card-radius: 20px;
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-* { margin:0; padding:0; box-sizing:border-box; font-family:'Inter', sans-serif; }
-
-body {
-    background: var(--body-bg);
-    min-height: 100vh;
+.role-select-box {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
-    position: relative;
-    overflow-x: hidden;
-}
-
-body::before {
-    content:'';
-    position: fixed;
-    top: -150px; left: -150px;
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(37,99,235,0.15) 0%, rgba(255,255,255,0) 70%);
-    border-radius: 50%;
-    z-index: 0;
-}
-body::after {
-    content:'';
-    position: fixed;
-    bottom: -150px; right: -150px;
-    width: 550px; height: 550px;
-    background: radial-gradient(circle, rgba(245,158,11,0.12) 0%, rgba(255,255,255,0) 70%);
-    border-radius: 50%;
-    z-index: 0;
-}
-
-.reg-container {
-    max-width: 960px;
-    width: 100%;
-    position: relative;
-    z-index: 1;
-}
-
-.reg-header {
-    text-align: center;
-    margin-bottom: 40px;
-}
-.brand-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: white;
-    padding: 8px 18px;
-    border-radius: 30px;
-    box-shadow: 0 4px 20px rgba(37,99,235,0.08);
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--primary);
-    margin-bottom: 16px;
-    border: 1px solid rgba(37,99,235,0.15);
-}
-.brand-badge i { font-size: 16px; color: var(--accent); }
-
-.reg-header h1 {
-    font-family: 'Outfit', sans-serif;
-    font-size: 36px;
-    font-weight: 800;
-    color: var(--text-dark);
-    margin-bottom: 10px;
-    letter-spacing: -0.5px;
-}
-.reg-header p {
-    font-size: 15px;
-    color: var(--text-muted);
-    max-width: 540px;
-    margin: 0 auto;
-}
-
-.role-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 24px;
-    margin-bottom: 36px;
-}
-
-.role-card {
-    background: white;
-    border-radius: var(--card-radius);
-    padding: 30px 24px;
-    box-shadow: 0 6px 30px rgba(37,99,235,0.06);
-    border: 2px solid transparent;
-    transition: var(--transition);
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    text-decoration: none;
-    color: inherit;
-}
-
-.role-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 16px 45px rgba(37,99,235,0.15);
-    border-color: var(--primary);
-}
-
-.role-card.selected {
-    border-color: var(--primary);
-    background: linear-gradient(180deg, #FFFFFF 0%, #F4F7FF 100%);
-    box-shadow: 0 12px 40px rgba(37,99,235,0.18);
-}
-
-.role-icon-box {
-    width: 64px;
-    height: 64px;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-    margin-bottom: 20px;
-    transition: var(--transition);
-}
-
-.role-card:nth-child(1) .role-icon-box { background: #DBEAFE; color: #1D4ED8; }
-.role-card:nth-child(2) .role-icon-box { background: #D1FAE5; color: #059669; }
-.role-card:nth-child(3) .role-icon-box { background: #FEF3C7; color: #D97706; }
-.role-card:nth-child(4) .role-icon-box { background: #EDE9FE; color: #7C3AED; }
-
-.role-card:hover .role-icon-box {
-    transform: scale(1.1) rotate(-4deg);
-}
-
-.role-title {
-    font-family: 'Outfit', sans-serif;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-dark);
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.role-desc {
-    font-size: 13.5px;
-    color: var(--text-muted);
-    line-height: 1.6;
-    margin-bottom: 20px;
-    flex-grow: 1;
-}
-
-.role-badge {
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 20px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.badge-popular { background: #DBEAFE; color: #1E40AF; }
-.badge-enterprise { background: #EDE9FE; color: #6D28D9; }
-
-.role-footer {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--primary);
-    transition: var(--transition);
-}
-.role-card:hover .role-footer i {
-    transform: translateX(5px);
-}
-
-.radio-check {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 2px solid #CBD5E1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: var(--transition);
-}
-.role-card.selected .radio-check {
-    border-color: var(--primary);
-    background: var(--primary);
-}
-.role-card.selected .radio-check::after {
-    content: '';
-    width: 8px;
-    height: 8px;
-    background: white;
-    border-radius: 50%;
-}
-
-.action-bar {
-    text-align: center;
-}
-
-.btn-crm-continue {
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    color: white;
-    border: none;
-    border-radius: 14px;
-    padding: 14px 40px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
     gap: 10px;
-    box-shadow: 0 8px 25px rgba(37,99,235,0.3);
-    transition: var(--transition);
-    text-decoration: none;
+    margin-bottom: 18px;
 }
-.btn-crm-continue:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 35px rgba(37,99,235,0.4);
-    color: white;
+.role-option {
+    flex: 1;
+    border: 1px solid #CBD5E1;
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+    cursor: pointer;
+    background: #F8FAFC;
+    transition: 0.3s;
+    font-size: 13px;
+    font-weight: 500;
+    color: #0F172A;
 }
-
-.login-link {
-    margin-top: 24px;
-    font-size: 14px;
-    color: var(--text-muted);
+.role-option input {
+    display: none;
 }
-.login-link a {
-    color: var(--primary);
-    font-weight: 700;
-    text-decoration: none;
+.role-option:has(input:checked) {
+    border-color: #2563EB;
+    background: #EFF6FF;
+    color: #2563EB;
+    font-weight: 600;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
 }
-.login-link a:hover {
-    text-decoration: underline;
+.course-select-style {
+    width: 100%;
+    padding: 16px 20px 16px 50px;
+    border-radius: 14px;
+    border: 1px solid #CBD5E1;
+    outline: none;
+    font-size: 15px;
+    background: #F8FAFC;
+    color: #0F172A;
+    transition: .3s;
 }
-
-@media (max-width: 768px) {
-    .role-grid { grid-template-columns: 1fr; }
-    .reg-header h1 { font-size: 28px; }
+.course-select-style:focus {
+    border-color: #2563EB;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(37,99,235,.12);
+}
+.two-cols {
+    display: flex;
+    gap: 12px;
+}
+.two-cols .input-box {
+    flex: 1;
 }
 </style>
 </head>
 <body>
 
-<div class="reg-container">
+<div class="main-container">
 
-    <!-- Header -->
-    <div class="reg-header">
-        <div class="brand-badge">
-            <i class="fa-solid fa-building-columns"></i> Smart Campus CRM
+    <!-- LEFT SECTION -->
+    <div class="brand-section">
+        <div class="brand-content">
+            <div class="brand-logo">
+                <i class="fa-solid fa-building-columns"></i>
+            </div>
+            <h1>Smart Campus</h1>
+            <p>Join Smart Campus today. Select your College, choose your account type—Student, Parent, or Teacher—and access an integrated educational portal.</p>
+            <div class="features">
+                <div><i class="fa-solid fa-building-columns"></i> Multi-College & Campus Support</div>
+                <div><i class="fa-solid fa-graduation-cap"></i> Student & Teacher Course Assignment</div>
+                <div><i class="fa-solid fa-users"></i> Automatic Parent-Child Surname Linking</div>
+                <div><i class="fa-solid fa-shield-halved"></i> Secure Account Creation</div>
+            </div>
         </div>
-        <h1>Create Your Account</h1>
-        <p>Select your account type below to customize your registration form.</p>
     </div>
 
-    <!-- Role Selection Form -->
-    <form action="register_form.php" method="GET" id="roleForm">
-        <input type="hidden" name="type" id="selectedRole" value="student">
+    <!-- REGISTER SECTION -->
+    <div class="login-section">
+        <div class="login-card" style="width:480px;">
+            <h2>Create Account ✨</h2>
+            <p>Register as a Student, Parent, or Teacher</p>
 
-        <div class="role-grid">
+            <?php if(!empty($error)): ?>
+                <div class="alert alert-danger py-2 px-3 mb-3 rounded-3" style="font-size:14px;">
+                    <i class="fa-solid fa-circle-exclamation me-1"></i> <?= htmlspecialchars($error) ?>
+                </div>
+            <?php endif; ?>
 
-            <!-- Student Card -->
-            <div class="role-card selected" onclick="selectRole('student', this)">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="role-icon-box">
-                        <i class="fa-solid fa-user-graduate"></i>
-                    </div>
-                    <span class="role-badge badge-popular">Popular</span>
+            <form action="register.php" method="POST">
+                
+                <label class="form-label text-muted small mb-1 fw-medium">I am signing up as:</label>
+                <div class="role-select-box">
+                    <label class="role-option">
+                        <input type="radio" name="role" value="student" id="roleStudent" <?= ($_POST['role'] ?? 'student') === 'student' ? 'checked' : '' ?>>
+                        <i class="fa-solid fa-user-graduate me-1"></i> Student / Child
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role" value="parent" id="roleParent" <?= ($_POST['role'] ?? '') === 'parent' ? 'checked' : '' ?>>
+                        <i class="fa-solid fa-hands-holding-child me-1"></i> Parent
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role" value="teacher" id="roleTeacher" <?= ($_POST['role'] ?? '') === 'teacher' ? 'checked' : '' ?>>
+                        <i class="fa-solid fa-chalkboard-user me-1"></i> Teacher
+                    </label>
                 </div>
-                <div class="role-title">
-                    Student
-                    <div class="radio-check"></div>
-                </div>
-                <div class="role-desc">
-                    Join as a student to track your attendance, check subject marks, view timetables, and view academic achievements.
-                </div>
-                <div class="role-footer">
-                    Register as Student <i class="fa-solid fa-arrow-right ms-auto"></i>
-                </div>
-            </div>
 
-            <!-- Teacher Card -->
-            <div class="role-card" onclick="selectRole('teacher', this)">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="role-icon-box">
-                        <i class="fa-solid fa-chalkboard-user"></i>
-                    </div>
-                </div>
-                <div class="role-title">
-                    Teacher / Faculty
-                    <div class="radio-check"></div>
-                </div>
-                <div class="role-desc">
-                    Register as an educator to manage class timetables, log student attendance, post exam marks, and issue achievements.
-                </div>
-                <div class="role-footer">
-                    Register as Teacher <i class="fa-solid fa-arrow-right ms-auto"></i>
-                </div>
-            </div>
-
-            <!-- Parent Card -->
-            <div class="role-card" onclick="selectRole('parent', this)">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="role-icon-box">
-                        <i class="fa-solid fa-people-roof"></i>
-                    </div>
-                </div>
-                <div class="role-title">
-                    Parent / Guardian
-                    <div class="radio-check"></div>
-                </div>
-                <div class="role-desc">
-                    Register as a parent to monitor your child's daily attendance, academic scorecard, and receive official campus notices.
-                </div>
-                <div class="role-footer">
-                    Register as Parent <i class="fa-solid fa-arrow-right ms-auto"></i>
-                </div>
-            </div>
-
-            <!-- New Institute Card -->
-            <div class="role-card" onclick="selectRole('institute', this)">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="role-icon-box">
+                <!-- College / Campus Selection -->
+                <div class="mb-3" id="collegeWrapper">
+                    <label class="form-label text-muted small mb-1 fw-medium">Select College / Institution:</label>
+                    <div class="input-box" style="margin-bottom: 0;">
                         <i class="fa-solid fa-building-columns"></i>
+                        <select name="college_id" id="collegeSelect" class="course-select-style" required>
+                            <?php foreach($availableColleges as $clg): ?>
+                                <option value="<?= $clg['id'] ?>" <?= (string)($_POST['college_id'] ?? 1) === (string)$clg['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($clg['college_name']) ?> (<?= htmlspecialchars($clg['college_code']) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="Other" <?= ($_POST['college_id'] ?? '') === 'Other' ? 'selected' : '' ?>>Other / Register New College</option>
+                        </select>
                     </div>
-                    <span class="role-badge badge-enterprise">Enterprise</span>
+
+                    <div class="input-box mt-2" id="customCollegeBox" style="display: none; margin-bottom: 0;">
+                        <i class="fa-solid fa-hotel"></i>
+                        <input type="text" name="custom_college" id="customCollegeInput" placeholder="Specify New College Name" value="<?= htmlspecialchars($_POST['custom_college'] ?? '') ?>">
+                    </div>
                 </div>
-                <div class="role-title">
-                    New Institute
-                    <div class="radio-check"></div>
+
+                <!-- First Name and Last Name -->
+                <div class="two-cols">
+                    <div class="input-box">
+                        <i class="fa-solid fa-user"></i>
+                        <input type="text" name="first_name" id="firstNameInput" placeholder="First Name" value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>" required>
+                    </div>
+                    <div class="input-box">
+                        <i class="fa-solid fa-signature"></i>
+                        <input type="text" name="last_name" id="lastNameInput" placeholder="Last Name" value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" required>
+                    </div>
                 </div>
-                <div class="role-desc">
-                    Set up a new school, college, or coaching institute on Smart Campus CRM to manage students, teachers, and operations.
+
+                <div class="input-box">
+                    <i class="fa-solid fa-envelope"></i>
+                    <input type="email" name="email" placeholder="Email Address" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
                 </div>
-                <div class="role-footer">
-                    Register New Institute <i class="fa-solid fa-arrow-right ms-auto"></i>
+
+                <!-- Course / Subject Selection for Student & Teacher -->
+                <div class="mb-3" id="courseWrapper">
+                    <label class="form-label text-muted small mb-1 fw-medium" id="courseLabel">What course are you enrolling in?</label>
+                    <div class="input-box" style="margin-bottom: 0;">
+                        <i class="fa-solid fa-graduation-cap" id="courseIcon"></i>
+                        <select name="course" id="courseSelect" class="course-select-style">
+                            <option value="" id="defaultOption">-- Choose Course / Subject --</option>
+                            <?php foreach($availableCourses as $c): ?>
+                                <option value="<?= htmlspecialchars($c) ?>" <?= ($_POST['course'] ?? '') === $c ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($c) ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="Other" <?= ($_POST['course'] ?? '') === 'Other' ? 'selected' : '' ?>>Other / Custom Course</option>
+                        </select>
+                    </div>
+
+                    <div class="input-box mt-2" id="customCourseBox" style="display: none; margin-bottom: 0;">
+                        <i class="fa-solid fa-book"></i>
+                        <input type="text" name="custom_course" id="customCourseInput" placeholder="Specify Course / Subject Name" value="<?= htmlspecialchars($_POST['custom_course'] ?? '') ?>">
+                    </div>
                 </div>
+
+                <div class="input-box">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" id="reg_password" name="password" placeholder="Create Password" required>
+                    <i class="fa-solid fa-eye-slash" id="toggleRegPassword" style="left:auto!important;right:18px!important;cursor:pointer;"></i>
+                </div>
+
+                <div class="input-box">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" id="reg_confirm" name="confirm_password" placeholder="Confirm Password" required>
+                </div>
+
+                <button class="login-btn" name="register" type="submit">
+                    Register Account <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+
+            <div class="bottom-text">
+                Already have an account? <a href="login.php">Login</a>
             </div>
-
         </div>
-
-        <div class="action-bar">
-            <button type="submit" class="btn-crm-continue">
-                Continue to Registration <i class="fa-solid fa-arrow-right"></i>
-            </button>
-            <div class="login-link">
-                Already have an account? <a href="login.php">Log In</a>
-            </div>
-        </div>
-
-    </form>
+    </div>
 
 </div>
 
 <script>
-function selectRole(role, cardElement) {
-    document.getElementById('selectedRole').value = role;
-    document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
-    cardElement.classList.add('selected');
+const togglePass        = document.getElementById('toggleRegPassword');
+const passInput         = document.getElementById('reg_password');
+const roleStudent       = document.getElementById('roleStudent');
+const roleParent        = document.getElementById('roleParent');
+const roleTeacher       = document.getElementById('roleTeacher');
+const courseWrapper     = document.getElementById('courseWrapper');
+const courseLabel       = document.getElementById('courseLabel');
+const courseSelect      = document.getElementById('courseSelect');
+const courseIcon        = document.getElementById('courseIcon');
+const defaultOption     = document.getElementById('defaultOption');
+const customCourseBox   = document.getElementById('customCourseBox');
+const customCourseInput = document.getElementById('customCourseInput');
+const collegeSelect     = document.getElementById('collegeSelect');
+const customCollegeBox  = document.getElementById('customCollegeBox');
+const customCollegeInput= document.getElementById('customCollegeInput');
+
+if(togglePass && passInput) {
+    togglePass.addEventListener('click', () => {
+        const type = passInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passInput.setAttribute('type', type);
+        togglePass.classList.toggle('fa-eye');
+        togglePass.classList.toggle('fa-eye-slash');
+    });
+}
+
+function checkCustomCollege() {
+    if(collegeSelect && collegeSelect.value === 'Other') {
+        customCollegeBox.style.display = 'block';
+        if(customCollegeInput) customCollegeInput.required = true;
+    } else {
+        customCollegeBox.style.display = 'none';
+        if(customCollegeInput) customCollegeInput.required = false;
+    }
+}
+
+if(collegeSelect) {
+    collegeSelect.addEventListener('change', checkCustomCollege);
+    checkCustomCollege();
+}
+
+function updateCourseRoleLabels() {
+    if(roleParent && roleParent.checked) {
+        if(courseWrapper) courseWrapper.style.display = 'none';
+        if(courseSelect) courseSelect.required = false;
+    } else if(roleTeacher && roleTeacher.checked) {
+        if(courseWrapper) courseWrapper.style.display = 'block';
+        if(courseLabel) courseLabel.innerText = 'Which subject / course are you going to teach?';
+        if(defaultOption) defaultOption.innerText = '-- Choose Subject / Course to Teach --';
+        if(courseIcon) courseIcon.className = 'fa-solid fa-chalkboard-user';
+        if(courseSelect) courseSelect.required = true;
+    } else {
+        if(courseWrapper) courseWrapper.style.display = 'block';
+        if(courseLabel) courseLabel.innerText = 'What course are you enrolling in?';
+        if(defaultOption) defaultOption.innerText = '-- Choose Enrolling Course --';
+        if(courseIcon) courseIcon.className = 'fa-solid fa-graduation-cap';
+        if(courseSelect) courseSelect.required = true;
+    }
+}
+
+function checkCustomCourse() {
+    if(courseSelect && courseSelect.value === 'Other' && courseWrapper.style.display !== 'none') {
+        customCourseBox.style.display = 'block';
+        if(customCourseInput) customCourseInput.required = true;
+    } else {
+        customCourseBox.style.display = 'none';
+        if(customCourseInput) customCourseInput.required = false;
+    }
+}
+
+if(roleStudent) roleStudent.addEventListener('change', updateCourseRoleLabels);
+if(roleParent) roleParent.addEventListener('change', updateCourseRoleLabels);
+if(roleTeacher) roleTeacher.addEventListener('change', updateCourseRoleLabels);
+updateCourseRoleLabels();
+
+if(courseSelect) {
+    courseSelect.addEventListener('change', checkCustomCourse);
+    checkCustomCourse();
 }
 </script>
+
 </body>
 </html>

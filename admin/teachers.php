@@ -104,18 +104,17 @@ include "../includes/topbar.php";
 
 <?php 
 if($result && mysqli_num_rows($result) > 0) {
-    $sn = 1;
-    while($row = mysqli_fetch_assoc($result)) { 
-        $teacherData = [
-            'ID' => $row['id'],
-            'SN' => $sn,
-            'Name' => $row['full_name'],
-            'Email' => $row['email'],
-            'Phone' => $row['phone'],
-            'Subject' => $row['subject'],
-            'Qualification' => $row['qualification']
-        ];
-        $tJson = htmlspecialchars(json_encode($teacherData), ENT_QUOTES, 'UTF-8');
+$sn = 1;
+while($row = mysqli_fetch_assoc($result)) { 
+    $tJson = htmlspecialchars(json_encode([
+        'ID' => $sn,
+        'DatabaseID' => $row['id'],
+        'Name' => $row['full_name'],
+        'Email' => $row['email'],
+        'Phone' => $row['phone'],
+        'Subject' => $row['subject'],
+        'Qualification' => $row['qualification']
+    ]), ENT_QUOTES, 'UTF-8');
 ?>
 
 <tr>
@@ -128,7 +127,7 @@ if($result && mysqli_num_rows($result) > 0) {
 
 <td>
 <div class="btn-group btn-group-sm">
-<button type="button" class="btn btn-info text-white" title="Quick View" data-teacher="<?php echo $tJson; ?>" onclick="viewTeacherDetails(this)">
+<button type="button" class="btn btn-info text-white" title="Quick View" onclick='viewTeacherDetails(<?php echo $tJson; ?>)'>
 <i class="fa-solid fa-eye"></i>
 </button>
 <a href="edit_teacher.php?id=<?php echo $row['id']; ?>" class="btn btn-warning" title="Edit">
@@ -143,7 +142,7 @@ if($result && mysqli_num_rows($result) > 0) {
 </tr>
 
 <?php 
-    }
+}
 } else {
 ?>
 <tr>
@@ -160,15 +159,7 @@ if($result && mysqli_num_rows($result) > 0) {
 </div>
 
 <script>
-function viewTeacherDetails(btn) {
-    let data;
-    try {
-        data = typeof btn === 'string' ? JSON.parse(btn) : JSON.parse(btn.getAttribute('data-teacher'));
-    } catch(e) {
-        console.error('Invalid teacher data', e);
-        return;
-    }
-
+function viewTeacherDetails(data) {
     let html = `
         <div class="p-2">
             <div class="text-center mb-3">
@@ -177,8 +168,7 @@ function viewTeacherDetails(btn) {
                 <span class="badge bg-primary">${escapeHtml(data.Subject)} Faculty</span>
             </div>
             <table class="table table-bordered">
-                <tr><th>Serial No</th><td>#${escapeHtml(data.SN)}</td></tr>
-                <tr><th>Faculty DB ID</th><td>#${escapeHtml(data.ID)}</td></tr>
+                <tr><th>Serial No</th><td>#${escapeHtml(data.ID)}</td></tr>
                 <tr><th>Email</th><td>${escapeHtml(data.Email)}</td></tr>
                 <tr><th>Phone</th><td>${escapeHtml(data.Phone || 'N/A')}</td></tr>
                 <tr><th>Subject Handled</th><td>${escapeHtml(data.Subject || 'N/A')}</td></tr>

@@ -40,7 +40,7 @@ $typeConfig = [
         'badge'    => 'Faculty Portal'
     ],
     'institute' => [
-        'title'    => 'Register New University / College',
+        'title'    => 'Register University / High School / Institution',
         'subtitle' => 'Create a brand-new campus ecosystem with 100% clean data and Administrator control.',
         'icon'     => 'fa-building-columns',
         'badge'    => 'Campus Administrator'
@@ -49,6 +49,40 @@ $typeConfig = [
 
 $currentConfig = $typeConfig[$type];
 $errorMsg = "";
+
+// Helper function to insert/fetch college reliably
+function getOrCreateCollege($conn, $instName) {
+    $instName = trim($instName);
+    if(empty($instName)) return [1, 'Smart Campus Main Institute'];
+
+    $cChk = $conn->prepare("SELECT id, college_name FROM colleges WHERE college_name = ?");
+    $cChk->bind_param("s", $instName);
+    $cChk->execute();
+    $cRes = $cChk->get_result();
+
+    if ($cRes && $cRow = $cRes->fetch_assoc()) {
+        return [(int)$cRow['id'], $cRow['college_name']];
+    }
+
+    $cleanCode = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $instName), 0, 6));
+    if(empty($cleanCode)) $cleanCode = 'UNI';
+    $uniqueCode = $cleanCode . '_' . rand(1000, 9999);
+
+    $insClg = $conn->prepare("INSERT INTO colleges (college_name, college_code, address) VALUES (?, ?, 'Main Campus')");
+    $insClg->bind_param("ss", $instName, $uniqueCode);
+    if ($insClg->execute()) {
+        return [(int)$insClg->insert_id, $instName];
+    }
+
+    $altCode = $cleanCode . '_' . time();
+    $insAlt = $conn->prepare("INSERT INTO colleges (college_name, college_code, address) VALUES (?, ?, 'Main Campus')");
+    $insAlt->bind_param("ss", $instName, $altCode);
+    if ($insAlt->execute()) {
+        return [(int)$insAlt->insert_id, $instName];
+    }
+
+    return [1, 'Smart Campus Main Institute'];
+}
 
 // Fetch available courses
 $availableCourses = [];
@@ -62,7 +96,7 @@ if (empty($availableCourses)) {
     $availableCourses = ['Computer Science', 'Data Science', 'Business Administration', 'Mechanical Engineering'];
 }
 
-// Fetch available colleges
+// Fetch available colleges from database
 $availableColleges = [];
 $clgRes = mysqli_query($conn, "SELECT id, college_name, college_code FROM colleges ORDER BY id ASC");
 if ($clgRes) {
@@ -110,34 +144,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (empty($instName)) {
                     $errorMsg = "Please enter the Institute / University Name.";
                 } else {
-                    // Check if college already exists
-                    $cChk = $conn->prepare("SELECT id, college_name FROM colleges WHERE college_name = ?");
-                    $cChk->bind_param("s", $instName);
-                    $cChk->execute();
-                    $cRes = $cChk->get_result();
-
-                    if ($cRes && $cRow = $cRes->fetch_assoc()) {
-                        $collegeId = $cRow['id'];
-                        $collegeName = $cRow['college_name'];
-                    } else {
-                        $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $instName), 0, 6)) ?: 'UNI' . rand(100, 999);
-                        $insClg = $conn->prepare("INSERT INTO colleges (college_name, college_code, address) VALUES (?, ?, 'Main Campus')");
-                        $insClg->bind_param("ss", $instName, $code);
-                        if ($insClg->execute()) {
-                            $collegeId = $insClg->insert_id;
-                            $collegeName = $instName;
-                        } else {
-                            $collegeId = 1;
-                            $collegeName = $instName;
-                        }
-                    }
+                    list($collegeId, $collegeName) = getOrCreateCollege($conn, $instName);
 
                     // Create Admin account for this new college
                     $uIns = $conn->prepare("INSERT INTO users (college_id, college_name, first_name, last_name, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', 'Active')");
                     $uIns->bind_param("issssss", $collegeId, $collegeName, $firstName, $lastName, $fullName, $email, $hashedPass);
                     if ($uIns->execute()) {
                         echo "<script>
-                            alert(" . json_encode("University / College '{$collegeName}' registered successfully! Your admin portal is ready with clean data. Please log in.") . ");
+                            alert(" . json_encode("University / Institution '{$collegeName}' registered successfully! Your admin portal is ready with clean data. Please log in.") . ");
                             window.location.href = 'login.php';
                         </script>";
                         exit();
@@ -149,29 +163,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Resolution of College for Student, Parent, Teacher
                 $selCollegeId = $_POST['college_id'] ?? 1;
                 $custCollege  = trim($_POST['custom_college'] ?? '');
-                $collegeId    = 1;
-                $collegeName  = "Smart Campus Main Institute";
 
                 if ($selCollegeId === 'Other' && !empty($custCollege)) {
-                    $cChk = $conn->prepare("SELECT id, college_name FROM colleges WHERE college_name = ?");
-                    $cChk->bind_param("s", $custCollege);
-                    $cChk->execute();
-                    $cRes = $cChk->get_result();
-
-                    if ($cRes && $cRow = $cRes->fetch_assoc()) {
-                        $collegeId = $cRow['id'];
-                        $collegeName = $cRow['college_name'];
-                    } else {
-                        $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $custCollege), 0, 6)) ?: 'CLG' . rand(100, 999);
-                        $insClg = $conn->prepare("INSERT INTO colleges (college_name, college_code, address) VALUES (?, ?, 'Main Campus')");
-                        $insClg->bind_param("ss", $custCollege, $code);
-                        if ($insClg->execute()) {
-                            $collegeId = $insClg->insert_id;
-                            $collegeName = $custCollege;
-                        }
-                    }
+                    list($collegeId, $collegeName) = getOrCreateCollege($conn, $custCollege);
                 } else {
                     $cid = (int)$selCollegeId;
+                    $collegeId = 1;
+                    $collegeName = "Smart Campus Main Institute";
                     foreach ($availableColleges as $cObj) {
                         if ((int)$cObj['id'] === $cid) {
                             $collegeId = $cObj['id'];
@@ -234,7 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     --input-bg: #0F172A;
     --text-dark: #F8FAFC;
     --text-muted: #94A3B8;
-    --border-color: rgba(255, 255, 255, 0.12);
+    --border-color: rgba(255, 255, 255, 0.15);
     --radius: 20px;
 }
 
@@ -355,6 +353,7 @@ body {
     font-size: 26px;
     font-weight: 800;
     margin-bottom: 6px;
+    color: white;
 }
 .form-header p {
     color: #94A3B8;
@@ -402,6 +401,11 @@ body {
 .form-control-crm:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 4px rgba(37,99,235,0.2);
+}
+
+select.form-control-crm option {
+    background-color: var(--card-bg);
+    color: var(--text-dark);
 }
 
 .form-grid-2 {
@@ -486,35 +490,36 @@ body {
             </div>
         <?php endif; ?>
 
-        <form action="register_form.php?type=<?= urlencode($type) ?>" method="POST">
+        <form action="register_form.php?type=<?= urlencode($type) ?>" method="POST" autocomplete="off">
 
             <?php if ($type === 'institute'): ?>
                 <div class="field-group">
-                    <label class="field-label">University / College Name *</label>
+                    <label class="field-label">University / High School / Institute Name *</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-building-columns"></i>
-                        <input type="text" name="institute_name" class="form-control-crm" placeholder="e.g. Oxford Institute of Technology" required>
+                        <input type="text" name="institute_name" class="form-control-crm" placeholder="e.g. Oxford High School & College" required>
                     </div>
                 </div>
             <?php else: ?>
                 <!-- Select College / Campus for Student, Parent, Teacher -->
                 <div class="field-group">
-                    <label class="field-label">Select University / College Campus *</label>
+                    <label class="field-label">Select University / High School / College Campus *</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-building-columns"></i>
                         <select name="college_id" id="collegeSelect" class="form-control-crm" required>
+                            <option value="">-- Choose University / College --</option>
                             <?php foreach ($availableColleges as $clg): ?>
                                 <option value="<?= $clg['id'] ?>">
                                     <?= htmlspecialchars($clg['college_name']) ?> (<?= htmlspecialchars($clg['college_code']) ?>)
                                 </option>
                             <?php endforeach; ?>
-                            <option value="Other">Other / Register New College</option>
+                            <option value="Other">Other / Register New Campus Name</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="field-group" id="customCollegeBox" style="display: none;">
-                    <label class="field-label">Specify New University / College Name *</label>
+                    <label class="field-label">Specify New Campus Name *</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-hotel"></i>
                         <input type="text" name="custom_college" id="customCollegeInput" class="form-control-crm" placeholder="Enter New Campus Name">
@@ -535,7 +540,7 @@ body {
                     <label class="field-label">Email Address *</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-envelope"></i>
-                        <input type="email" name="email" class="form-control-crm" placeholder="name@domain.com" required>
+                        <input type="email" name="email" class="form-control-crm" placeholder="name@domain.com" autocomplete="email" required>
                     </div>
                 </div>
 
@@ -543,7 +548,7 @@ body {
                     <label class="field-label">Phone Number</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-phone"></i>
-                        <input type="text" name="phone" class="form-control-crm" placeholder="+1 555-0199">
+                        <input type="tel" name="phone" id="userPhoneInput" class="form-control-crm" placeholder="+1 555-0199" autocomplete="tel">
                     </div>
                 </div>
             </div>
@@ -552,7 +557,7 @@ body {
                 <label class="field-label">Password *</label>
                 <div class="input-with-icon">
                     <i class="fa-solid fa-lock"></i>
-                    <input type="password" name="password" class="form-control-crm" placeholder="Create a secure password" required minlength="6">
+                    <input type="password" name="password" class="form-control-crm" placeholder="Create a secure password" autocomplete="new-password" required minlength="6">
                 </div>
             </div>
 
@@ -587,7 +592,7 @@ body {
             </button>
 
             <div class="text-center mt-4" style="font-size:14px; color: var(--text-muted);">
-                Already have an account? <a href="login.php" style="color: var(--primary); font-weight:700; text-decoration:none;">Log In</a>
+                Already have an account? <a href="login.php" style="color: #60A5FA; font-weight:700; text-decoration:none;">Log In</a>
             </div>
 
         </form>

@@ -138,7 +138,7 @@ include "../includes/topbar.php";
 
             <div class="col-md-6">
                 <label><i class="fa-solid fa-phone text-primary me-1"></i> Phone Number</label>
-                <input type="text" name="phone" class="form-control" placeholder="+1 555-0188" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
+                <input type="tel" name="phone" id="teacherPhone" class="form-control" placeholder="+1 555-0188" autocomplete="tel" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
             </div>
 
             <div class="col-md-6">

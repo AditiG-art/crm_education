@@ -81,13 +81,15 @@ include "../includes/topbar.php";
                 </tr>
             </thead>
             <tbody>
-                <?php if($result && mysqli_num_rows($result) > 0){ ?>
+                <?php if($result && mysqli_num_rows($result) > 0){ 
+                    $sn = 1;
+                ?>
                     <?php while($row = mysqli_fetch_assoc($result)){ 
                         $cName = $row['course_name'];
                         $stuEnrolled = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM students WHERE course = '" . mysqli_real_escape_string($conn, $cName) . "'"))['cnt'] ?? 0;
                     ?>
                         <tr>
-                            <td>#<?php echo htmlspecialchars($row['id']); ?></td>
+                            <td>#<?php echo $sn++; ?></td>
                             <td><strong><?php echo htmlspecialchars($row['course_name']); ?></strong></td>
                             <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($row['duration']); ?></span></td>
                             <td><strong class="text-success"><?php echo htmlspecialchars($row['fees']); ?></strong></td>

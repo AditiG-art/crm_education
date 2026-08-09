@@ -246,21 +246,24 @@ while($c = mysqli_fetch_assoc($courseList)) {
 
 <?php
 if(mysqli_num_rows($result) > 0) {
-while($row = mysqli_fetch_assoc($result)) {
-    $detailJson = htmlspecialchars(json_encode([
-        'ID' => $row['id'],
-        'Name' => $row['full_name'],
-        'Email' => $row['email'],
-        'Phone' => $row['phone'],
-        'Gender' => $row['gender'],
-        'DOB' => $row['date_of_birth'],
-        'Course' => $row['course'],
-        'Address' => $row['address']
-    ]), ENT_QUOTES, 'UTF-8');
+    $sn = 1;
+    while($row = mysqli_fetch_assoc($result)) {
+        $studentData = [
+            'ID' => $row['id'],
+            'SN' => $sn,
+            'Name' => $row['full_name'],
+            'Email' => $row['email'],
+            'Phone' => $row['phone'],
+            'Gender' => $row['gender'],
+            'DOB' => $row['date_of_birth'],
+            'Course' => $row['course'],
+            'Address' => $row['address']
+        ];
+        $studentJson = htmlspecialchars(json_encode($studentData), ENT_QUOTES, 'UTF-8');
 ?>
 
 <tr>
-<td>#<?php echo htmlspecialchars($row['id']); ?></td>
+<td>#<?php echo $sn++; ?></td>
 <td><strong><?php echo htmlspecialchars($row['full_name']); ?></strong></td>
 <td><?php echo htmlspecialchars($row['email']); ?></td>
 <td><?php echo htmlspecialchars($row['phone']); ?></td>
@@ -270,7 +273,7 @@ while($row = mysqli_fetch_assoc($result)) {
 
 <td>
 <div class="btn-group btn-group-sm">
-<button type="button" class="btn btn-info text-white" title="Quick View" onclick='viewStudentDetails(<?php echo $detailJson; ?>)'>
+<button type="button" class="btn btn-info text-white" title="Quick View" data-student="<?php echo $studentJson; ?>" onclick="viewStudentDetails(this)">
 <i class="fa-solid fa-eye"></i>
 </button>
 <a href="edit_student.php?id=<?php echo $row['id']; ?>" class="btn btn-warning" title="Edit">
@@ -284,7 +287,7 @@ while($row = mysqli_fetch_assoc($result)) {
 </tr>
 
 <?php
-}
+    }
 } else {
 ?>
 <tr>
@@ -302,7 +305,15 @@ while($row = mysqli_fetch_assoc($result)) {
 </div>
 
 <script>
-function viewStudentDetails(data) {
+function viewStudentDetails(btn) {
+    let data;
+    try {
+        data = typeof btn === 'string' ? JSON.parse(btn) : JSON.parse(btn.getAttribute('data-student'));
+    } catch(e) {
+        console.error('Invalid student data', e);
+        return;
+    }
+
     let html = `
         <div class="p-2">
             <div class="text-center mb-3">
@@ -311,7 +322,8 @@ function viewStudentDetails(data) {
                 <span class="badge-crm-enrolled">Active Student</span>
             </div>
             <table class="table table-bordered">
-                <tr><th>ID</th><td>#${escapeHtml(data.ID)}</td></tr>
+                <tr><th>Serial No</th><td>#${escapeHtml(data.SN)}</td></tr>
+                <tr><th>Student DB ID</th><td>#${escapeHtml(data.ID)}</td></tr>
                 <tr><th>Email</th><td>${escapeHtml(data.Email)}</td></tr>
                 <tr><th>Phone</th><td>${escapeHtml(data.Phone || 'N/A')}</td></tr>
                 <tr><th>Gender</th><td>${escapeHtml(data.Gender || 'N/A')}</td></tr>
@@ -326,142 +338,4 @@ function viewStudentDetails(data) {
 </script>
 
 </body>
-</html>
-
-
-
-
-
-<tbody>
-
-
-
-<?php
-
-
-if(mysqli_num_rows($result)>0)
-
-
-{
-
-
-while($row=mysqli_fetch_assoc($result))
-
-
-{
-
-
-?>
-
-
-
-<tr>
-<td><?php echo htmlspecialchars($row['id']); ?></td>
-<td><?php echo htmlspecialchars($row['full_name']); ?></td>
-<td><?php echo htmlspecialchars($row['email']); ?></td>
-<td><?php echo htmlspecialchars($row['phone']); ?></td>
-<td><span class="badge bg-primary"><?php echo htmlspecialchars($row['gender']); ?></span></td>
-<td><?php echo htmlspecialchars($row['date_of_birth']); ?></td>
-<td><?php echo htmlspecialchars($row['course']); ?></td>
-<td><?php echo htmlspecialchars($row['address']); ?></td>
-
-
-
-
-<td>
-
-
-
-<a href="edit_student.php?id=<?php echo $row['id']; ?>"
-class="btn btn-warning btn-sm">
-
-
-<i class="fa-solid fa-pen"></i>
-
-
-</a>
-
-
-
-
-
-<a href="delete_student.php?id=<?php echo $row['id']; ?>"
-class="btn btn-danger btn-sm"
-onclick="return confirm('Delete this student?');">
-
-
-<i class="fa-solid fa-trash"></i>
-
-
-</a>
-
-
-
-</td>
-
-
-
-</tr>
-
-
-
-
-<?php
-
-
-}
-
-
-}
-
-else
-
-{
-
-
-?>
-
-
-<tr>
-
-<td colspan="9" class="text-center">
-
-No Students Found
-
-</td>
-
-</tr>
-
-
-
-<?php
-
-}
-
-
-?>
-
-
-
-</tbody>
-
-
-</table>
-
-
-</div>
-
-
-
-</div>
-
-
-
-</div>
-
-
-
-</body>
-
-
 </html>

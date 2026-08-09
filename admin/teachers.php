@@ -104,19 +104,22 @@ include "../includes/topbar.php";
 
 <?php 
 if($result && mysqli_num_rows($result) > 0) {
-while($row = mysqli_fetch_assoc($result)) { 
-    $tJson = htmlspecialchars(json_encode([
-        'ID' => $row['id'],
-        'Name' => $row['full_name'],
-        'Email' => $row['email'],
-        'Phone' => $row['phone'],
-        'Subject' => $row['subject'],
-        'Qualification' => $row['qualification']
-    ]), ENT_QUOTES, 'UTF-8');
+    $sn = 1;
+    while($row = mysqli_fetch_assoc($result)) { 
+        $teacherData = [
+            'ID' => $row['id'],
+            'SN' => $sn,
+            'Name' => $row['full_name'],
+            'Email' => $row['email'],
+            'Phone' => $row['phone'],
+            'Subject' => $row['subject'],
+            'Qualification' => $row['qualification']
+        ];
+        $tJson = htmlspecialchars(json_encode($teacherData), ENT_QUOTES, 'UTF-8');
 ?>
 
 <tr>
-<td>#<?php echo htmlspecialchars($row['id']); ?></td>
+<td>#<?php echo $sn++; ?></td>
 <td><strong><?php echo htmlspecialchars($row['full_name']); ?></strong></td>
 <td><?php echo htmlspecialchars($row['email']); ?></td>
 <td><?php echo htmlspecialchars($row['phone']); ?></td>
@@ -125,7 +128,7 @@ while($row = mysqli_fetch_assoc($result)) {
 
 <td>
 <div class="btn-group btn-group-sm">
-<button type="button" class="btn btn-info text-white" title="Quick View" onclick='viewTeacherDetails(<?php echo $tJson; ?>)'>
+<button type="button" class="btn btn-info text-white" title="Quick View" data-teacher="<?php echo $tJson; ?>" onclick="viewTeacherDetails(this)">
 <i class="fa-solid fa-eye"></i>
 </button>
 <a href="edit_teacher.php?id=<?php echo $row['id']; ?>" class="btn btn-warning" title="Edit">
@@ -140,7 +143,7 @@ while($row = mysqli_fetch_assoc($result)) {
 </tr>
 
 <?php 
-}
+    }
 } else {
 ?>
 <tr>
@@ -157,7 +160,15 @@ while($row = mysqli_fetch_assoc($result)) {
 </div>
 
 <script>
-function viewTeacherDetails(data) {
+function viewTeacherDetails(btn) {
+    let data;
+    try {
+        data = typeof btn === 'string' ? JSON.parse(btn) : JSON.parse(btn.getAttribute('data-teacher'));
+    } catch(e) {
+        console.error('Invalid teacher data', e);
+        return;
+    }
+
     let html = `
         <div class="p-2">
             <div class="text-center mb-3">
@@ -166,7 +177,8 @@ function viewTeacherDetails(data) {
                 <span class="badge bg-primary">${escapeHtml(data.Subject)} Faculty</span>
             </div>
             <table class="table table-bordered">
-                <tr><th>Faculty ID</th><td>#${escapeHtml(data.ID)}</td></tr>
+                <tr><th>Serial No</th><td>#${escapeHtml(data.SN)}</td></tr>
+                <tr><th>Faculty DB ID</th><td>#${escapeHtml(data.ID)}</td></tr>
                 <tr><th>Email</th><td>${escapeHtml(data.Email)}</td></tr>
                 <tr><th>Phone</th><td>${escapeHtml(data.Phone || 'N/A')}</td></tr>
                 <tr><th>Subject Handled</th><td>${escapeHtml(data.Subject || 'N/A')}</td></tr>

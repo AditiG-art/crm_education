@@ -183,6 +183,17 @@ function showToast(message, type = 'info', duration = 3500) {
     setTimeout(() => toast.remove(), duration);
 }
 
+/* ── HTML Escaping Utility ─────────────────────── */
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 /* ── Quick View Modal ─────────────────────────── */
 function showQuickViewModal(title, contentHtml) {
     let overlay = document.getElementById('crmQuickViewOverlay');
@@ -194,16 +205,29 @@ function showQuickViewModal(title, contentHtml) {
             <div class="crm-modal">
                 <div class="crm-modal-header">
                     <h5 id="qvTitle"><i class="fa-solid fa-eye"></i> Quick View</h5>
-                    <button class="crm-modal-close" onclick="document.getElementById('crmQuickViewOverlay').classList.remove('open')">✕</button>
+                    <button class="crm-modal-close" onclick="closeQuickViewModal()">✕</button>
                 </div>
                 <div class="crm-modal-body" id="qvBody"></div>
                 <div class="crm-modal-footer">
-                    <button class="btn-crm-print" onclick="document.getElementById('crmQuickViewOverlay').classList.remove('open')">Close</button>
+                    <button class="btn btn-secondary rounded-pill px-4" onclick="closeQuickViewModal()">Close</button>
                 </div>
             </div>`;
         document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                closeQuickViewModal();
+            }
+        });
     }
-    document.getElementById('qvTitle').innerHTML = `<i class="fa-solid fa-eye"></i> ${title}`;
+    document.getElementById('qvTitle').innerHTML = `<i class="fa-solid fa-eye"></i> ${escapeHtml(title)}`;
     document.getElementById('qvBody').innerHTML = contentHtml;
     overlay.classList.add('open');
+}
+
+function closeQuickViewModal() {
+    const overlay = document.getElementById('crmQuickViewOverlay');
+    if (overlay) {
+        overlay.classList.remove('open');
+    }
 }

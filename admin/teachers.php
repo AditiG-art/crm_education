@@ -13,14 +13,12 @@ if(!isset($_SESSION['user']) || $_SESSION['role']!="admin")
 
 
 
-$query = "SELECT * FROM teachers ORDER BY id DESC";
+$userCollegeId = (int)($_SESSION['college_id'] ?? 1);
+$query = "SELECT * FROM teachers WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1) ORDER BY id DESC";
+$result = mysqli_query($conn, $query);
 
-$result = mysqli_query($conn,$query);
-
-
-$countQuery = mysqli_query($conn,"SELECT COUNT(*) as total FROM teachers");
-
-$total = mysqli_fetch_assoc($countQuery)['total'];
+$countQuery = mysqli_query($conn, "SELECT COUNT(*) as total FROM teachers WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1)");
+$total = mysqli_fetch_assoc($countQuery)['total'] ?? 0;
 
 ?>
 

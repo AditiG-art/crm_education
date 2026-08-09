@@ -1,0 +1,545 @@
+<?php
+session_start();
+include "config/db.php";
+
+if (isset($_SESSION['user']) && isset($_SESSION['role'])) {
+    if ($_SESSION['role'] == "admin") {
+        header("Location: admin/dashboard.php"); exit();
+    } elseif ($_SESSION['role'] == "teacher") {
+        header("Location: teacher/dashboard.php"); exit();
+    } elseif ($_SESSION['role'] == "student") {
+        header("Location: student/dashboard.php"); exit();
+    } elseif ($_SESSION['role'] == "parent") {
+        header("Location: parent/dashboard.php"); exit();
+    }
+}
+
+$type = isset($_GET['type']) ? strtolower(trim($_GET['type'])) : 'student';
+$allowedTypes = ['student', 'parent', 'teacher', 'institute'];
+if (!in_array($type, $allowedTypes)) {
+    $type = 'student';
+}
+
+$typeConfig = [
+    'student' => [
+        'title'    => 'Student Registration',
+        'subtitle' => 'Create your student account to access course materials, grades, and attendance logs.',
+        'icon'     => 'fa-user-graduate',
+        'badge'    => 'Student Portal'
+    ],
+    'parent' => [
+        'title'    => 'Parent Registration',
+        'subtitle' => 'Sign up to monitor your child\'s class attendance health, test scores, and report cards.',
+        'icon'     => 'fa-hands-holding-child',
+        'badge'    => 'Parent Portal'
+    ],
+    'teacher' => [
+        'title'    => 'Faculty / Teacher Registration',
+        'subtitle' => 'Sign up as a teacher to manage subject timetables, mark attendance, and upload marks.',
+        'icon'     => 'fa-chalkboard-user',
+        'badge'    => 'Faculty Portal'
+    ],
+    'institute' => [
+        'title'    => 'Register New University / College',
+        'subtitle' => 'Create a brand-new campus ecosystem with 100% clean data and Administrator control.',
+        'icon'     => 'fa-building-columns',
+        'badge'    => 'Campus Administrator'
+    ]
+];
+
+$currentConfig = $typeConfig[$type];
+$errorMsg = "";
+
+// Fetch available courses
+$availableCourses = [];
+$cRes = mysqli_query($conn, "SELECT course_name FROM courses ORDER BY course_name ASC");
+if ($cRes) {
+    while ($cr = mysqli_fetch_assoc($cRes)) {
+        $availableCourses[] = $cr['course_name'];
+    }
+}
+if (empty($availableCourses)) {
+    $availableCourses = ['Computer Science', 'Data Science', 'Business Administration', 'Mechanical Engineering'];
+}
+
+// Fetch available colleges
+$availableColleges = [];
+$clgRes = mysqli_query($conn, "SELECT id, college_name, college_code FROM colleges ORDER BY id ASC");
+if ($clgRes) {
+    while ($clg = mysqli_fetch_assoc($clgRes)) {
+        $availableColleges[] = $clg;
+    }
+}
+if (empty($availableColleges)) {
+    $availableColleges = [
+        ['id' => 1, 'college_name' => 'Smart Campus Main Institute', 'college_code' => 'SCMI'],
+        ['id' => 2, 'college_name' => 'Apex Engineering College', 'college_code' => 'AEC'],
+        ['id' => 3, 'college_name' => 'Global Science & Business Academy', 'college_code' => 'GSBA']
+    ];
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email     = trim($_POST['email'] ?? '');
+    $password  = $_POST['password'] ?? '';
+    $fullName  = trim($_POST['full_name'] ?? '');
+    $phone     = trim($_POST['phone'] ?? '');
+
+    // Extract first and last name
+    $nameParts = explode(' ', $fullName);
+    $firstName = $nameParts[0];
+    $lastName  = count($nameParts) > 1 ? end($nameParts) : $nameParts[0];
+
+    if (empty($fullName) || empty($email) || empty($password)) {
+        $errorMsg = "Please fill in all required fields.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errorMsg = "Please enter a valid email address.";
+    } elseif (strlen($password) < 6) {
+        $errorMsg = "Password must be at least 6 characters long.";
+    } else {
+        // Check duplicate email
+        $chkStmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+        $chkStmt->bind_param("s", $email);
+        $chkStmt->execute();
+        if ($chkStmt->get_result()->num_rows > 0) {
+            $errorMsg = "An account with this email address already exists.";
+        } else {
+            $hashedPass = password_hash($password, PASSWORD_DEFAULT);
+
+            if ($type === 'institute') {
+                $instName = trim($_POST['institute_name'] ?? '');
+                if (empty($instName)) {
+                    $errorMsg = "Please enter the Institute / University Name.";
+                } else {
+                    // Check if college already exists
+                    $cChk = $conn->prepare("SELECT id, college_name FROM colleges WHERE college_name = ?");
+                    $cChk->bind_param("s", $instName);
+                    $cChk->execute();
+                    $cRes = $cChk->get_result();
+
+                    if ($cRes && $cRow = $cRes->fetch_assoc()) {
+                        $collegeId = $cRow['id'];
+                        $collegeName = $cRow['college_name'];
+                    } else {
+                        $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $instName), 0, 6)) ?: 'UNI' . rand(100, 999);
+                        $insClg = $conn->prepare("INSERT INTO colleges (college_name, college_code, address) VALUES (?, ?, 'Main Campus')");
+                        $insClg->bind_param("ss", $instName, $code);
+                        if ($insClg->execute()) {
+                            $collegeId = $insClg->insert_id;
+                            $collegeName = $instName;
+                        } else {
+                            $collegeId = 1;
+                            $collegeName = $instName;
+                        }
+                    }
+
+                    // Create Admin account for this new college
+                    $uIns = $conn->prepare("INSERT INTO users (college_id, college_name, first_name, last_name, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', 'Active')");
+                    $uIns->bind_param("issssss", $collegeId, $collegeName, $firstName, $lastName, $fullName, $email, $hashedPass);
+                    if ($uIns->execute()) {
+                        echo "<script>
+                            alert(" . json_encode("University / College '{$collegeName}' registered successfully! Your admin portal is ready with clean data. Please log in.") . ");
+                            window.location.href = 'login.php';
+                        </script>";
+                        exit();
+                    } else {
+                        $errorMsg = "Failed to create campus admin account.";
+                    }
+                }
+            } else {
+                // Resolution of College for Student, Parent, Teacher
+                $selCollegeId = $_POST['college_id'] ?? 1;
+                $custCollege  = trim($_POST['custom_college'] ?? '');
+                $collegeId    = 1;
+                $collegeName  = "Smart Campus Main Institute";
+
+                if ($selCollegeId === 'Other' && !empty($custCollege)) {
+                    $cChk = $conn->prepare("SELECT id, college_name FROM colleges WHERE college_name = ?");
+                    $cChk->bind_param("s", $custCollege);
+                    $cChk->execute();
+                    $cRes = $cChk->get_result();
+
+                    if ($cRes && $cRow = $cRes->fetch_assoc()) {
+                        $collegeId = $cRow['id'];
+                        $collegeName = $cRow['college_name'];
+                    } else {
+                        $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $custCollege), 0, 6)) ?: 'CLG' . rand(100, 999);
+                        $insClg = $conn->prepare("INSERT INTO colleges (college_name, college_code, address) VALUES (?, ?, 'Main Campus')");
+                        $insClg->bind_param("ss", $custCollege, $code);
+                        if ($insClg->execute()) {
+                            $collegeId = $insClg->insert_id;
+                            $collegeName = $custCollege;
+                        }
+                    }
+                } else {
+                    $cid = (int)$selCollegeId;
+                    foreach ($availableColleges as $cObj) {
+                        if ((int)$cObj['id'] === $cid) {
+                            $collegeId = $cObj['id'];
+                            $collegeName = $cObj['college_name'];
+                            break;
+                        }
+                    }
+                }
+
+                // Insert into users
+                $roleName = ($type === 'teacher') ? 'teacher' : (($type === 'parent') ? 'parent' : 'student');
+                $uIns = $conn->prepare("INSERT INTO users (college_id, college_name, first_name, last_name, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')");
+                $uIns->bind_param("isssssss", $collegeId, $collegeName, $firstName, $lastName, $fullName, $email, $hashedPass, $roleName);
+
+                if ($uIns->execute()) {
+                    if ($type === 'student') {
+                        $course = trim($_POST['course'] ?? '');
+                        $sIns = $conn->prepare("INSERT INTO students (college_id, college_name, first_name, last_name, full_name, email, phone, course) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                        $sIns->bind_param("isssssss", $collegeId, $collegeName, $firstName, $lastName, $fullName, $email, $phone, $course);
+                        $sIns->execute();
+                    } elseif ($type === 'teacher') {
+                        $subject = trim($_POST['subject'] ?? '');
+                        $tIns = $conn->prepare("INSERT INTO teachers (college_id, college_name, first_name, last_name, full_name, email, phone, subject) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                        $tIns->bind_param("isssssss", $collegeId, $collegeName, $firstName, $lastName, $fullName, $email, $phone, $subject);
+                        $tIns->execute();
+                    } elseif ($type === 'parent') {
+                        $pIns = $conn->prepare("INSERT INTO parents (college_id, college_name, first_name, last_name, full_name, email, phone) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $pIns->bind_param("issssss", $collegeId, $collegeName, $firstName, $lastName, $fullName, $email, $phone);
+                        $pIns->execute();
+                    }
+
+                    echo "<script>
+                        alert(" . json_encode("Registration successful at {$collegeName}! Please login to continue.") . ");
+                        window.location.href = 'login.php';
+                    </script>";
+                    exit();
+                } else {
+                    $errorMsg = "Registration failed. Please try again.";
+                }
+            }
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><?= htmlspecialchars($currentConfig['title']) ?> | Smart Campus</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+    --primary: #2563EB;
+    --primary-dark: #1E40AF;
+    --body-bg: #F0F4FF;
+    --card-bg: #FFFFFF;
+    --text-dark: #0F172A;
+    --text-muted: #64748B;
+    --border-color: #E2E8F0;
+    --radius: 20px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+body {
+    background: var(--body-bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.form-wrapper {
+    max-width: 620px;
+    width: 100%;
+    background: white;
+    border-radius: 28px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.form-header {
+    background: linear-gradient(135deg, #1E293B, #0F172A);
+    color: white;
+    padding: 36px 36px 28px;
+    position: relative;
+}
+
+.back-btn {
+    position: absolute;
+    top: 24px; right: 24px;
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 50%;
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none;
+    transition: 0.2s;
+}
+.back-btn:hover { background: rgba(255,255,255,0.25); color: white; }
+
+.form-header-icon {
+    width: 54px; height: 54px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--primary), #3B82F6);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    margin-bottom: 16px;
+}
+
+.form-header h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+.form-header p {
+    color: #94A3B8;
+    font-size: 14px;
+    margin: 0;
+}
+
+.form-body {
+    padding: 36px;
+}
+
+.field-group {
+    margin-bottom: 20px;
+}
+.field-label {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+    display: block;
+}
+
+.input-with-icon {
+    position: relative;
+}
+.input-with-icon i {
+    position: absolute;
+    left: 18px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--primary);
+    font-size: 16px;
+}
+
+.form-control-crm {
+    width: 100%;
+    padding: 14px 18px 14px 50px;
+    border-radius: 14px;
+    border: 1px solid #CBD5E1;
+    font-size: 14.5px;
+    background: #F8FAFC;
+    color: var(--text-dark);
+    outline: none;
+    transition: 0.3s;
+}
+.form-control-crm:focus {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.btn-submit {
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    font-weight: 700;
+    font-size: 16px;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px;
+    box-shadow: 0 8px 24px rgba(37,99,235,0.3);
+    transition: 0.3s;
+    margin-top: 10px;
+}
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(37,99,235,0.4);
+}
+
+.alert-danger-custom {
+    background: #FEE2E2;
+    border: 1px solid #FCA5A5;
+    color: #B91C1C;
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-size: 14px;
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 10px;
+}
+
+@media (max-width: 576px) {
+    .form-grid-2 { grid-template-columns: 1fr; }
+    .form-body { padding: 24px; }
+}
+</style>
+</head>
+<body>
+
+<div class="form-wrapper">
+
+    <!-- Header -->
+    <div class="form-header">
+        <a href="register.php" class="back-btn" title="Back to Account Selection">
+            <i class="fa-solid fa-xmark"></i>
+        </a>
+        <div class="form-header-icon">
+            <i class="fa-solid <?= $currentConfig['icon'] ?>"></i>
+        </div>
+        <h2><?= htmlspecialchars($currentConfig['title']) ?></h2>
+        <p><?= htmlspecialchars($currentConfig['subtitle']) ?></p>
+    </div>
+
+    <!-- Form Body -->
+    <div class="form-body">
+
+        <?php if (!empty($errorMsg)): ?>
+            <div class="alert-danger-custom">
+                <i class="fa-solid fa-circle-exclamation me-2"></i>
+                <div><?= htmlspecialchars($errorMsg) ?></div>
+            </div>
+        <?php endif; ?>
+
+        <form action="register_form.php?type=<?= urlencode($type) ?>" method="POST">
+
+            <?php if ($type === 'institute'): ?>
+                <div class="field-group">
+                    <label class="field-label">University / College Name *</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <input type="text" name="institute_name" class="form-control-crm" placeholder="e.g. Oxford Institute of Technology" required>
+                    </div>
+                </div>
+            <?php else: ?>
+                <!-- Select College / Campus for Student, Parent, Teacher -->
+                <div class="field-group">
+                    <label class="field-label">Select University / College Campus *</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <select name="college_id" id="collegeSelect" class="form-control-crm" required>
+                            <?php foreach ($availableColleges as $clg): ?>
+                                <option value="<?= $clg['id'] ?>">
+                                    <?= htmlspecialchars($clg['college_name']) ?> (<?= htmlspecialchars($clg['college_code']) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="Other">Other / Register New College</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field-group" id="customCollegeBox" style="display: none;">
+                    <label class="field-label">Specify New University / College Name *</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-hotel"></i>
+                        <input type="text" name="custom_college" id="customCollegeInput" class="form-control-crm" placeholder="Enter New Campus Name">
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <div class="field-group">
+                <label class="field-label"><?= $type === 'institute' ? 'Administrator Full Name *' : 'Full Name *' ?></label>
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" name="full_name" class="form-control-crm" placeholder="Enter your full name" required>
+                </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div class="field-group">
+                    <label class="field-label">Email Address *</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-envelope"></i>
+                        <input type="email" name="email" class="form-control-crm" placeholder="name@domain.com" required>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Phone Number</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-phone"></i>
+                        <input type="text" name="phone" class="form-control-crm" placeholder="+1 555-0199">
+                    </div>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">Password *</label>
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" name="password" class="form-control-crm" placeholder="Create a secure password" required minlength="6">
+                </div>
+            </div>
+
+            <!-- Role Specific Inputs -->
+            <?php if ($type === 'student'): ?>
+                <div class="field-group">
+                    <label class="field-label">Enrolling Course / Subject *</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                        <select name="course" class="form-control-crm" required>
+                            <option value="">-- Select Course --</option>
+                            <?php foreach ($availableCourses as $c): ?>
+                                <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($type === 'teacher'): ?>
+                <div class="field-group">
+                    <label class="field-label">Teaching Subject / Faculty *</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-book"></i>
+                        <input type="text" name="subject" class="form-control-crm" placeholder="e.g. Computer Science & AI" required>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <button type="submit" class="btn-submit">
+                Complete Registration <i class="fa-solid fa-arrow-right"></i>
+            </button>
+
+            <div class="text-center mt-4" style="font-size:14px; color: var(--text-muted);">
+                Already have an account? <a href="login.php" style="color: var(--primary); font-weight:700; text-decoration:none;">Log In</a>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script>
+const collegeSelect     = document.getElementById('collegeSelect');
+const customCollegeBox  = document.getElementById('customCollegeBox');
+const customCollegeInput= document.getElementById('customCollegeInput');
+
+if (collegeSelect) {
+    collegeSelect.addEventListener('change', () => {
+        if (collegeSelect.value === 'Other') {
+            customCollegeBox.style.display = 'block';
+            if (customCollegeInput) customCollegeInput.required = true;
+        } else {
+            customCollegeBox.style.display = 'none';
+            if (customCollegeInput) customCollegeInput.required = false;
+        }
+    });
+}
+</script>
+
+</body>
+</html>

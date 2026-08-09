@@ -20,9 +20,11 @@ $search = isset($_GET['search']) ? trim($_GET['search']) : "";
 $course = isset($_GET['course']) ? trim($_GET['course']) : "";
 $gender = isset($_GET['gender']) ? trim($_GET['gender']) : "";
 
-$query = "SELECT * FROM students WHERE 1=1";
-$params = [];
-$types = "";
+$userCollegeId = (int)($_SESSION['college_id'] ?? 1);
+
+$query = "SELECT * FROM students WHERE (college_id = ? OR (college_id IS NULL AND ? = 1))";
+$params = [$userCollegeId, $userCollegeId];
+$types = "ii";
 
 if($search !== "")
 {
@@ -58,19 +60,15 @@ if(!empty($params))
 $stmt->execute();
 $result = $stmt->get_result();
 
-
-
 // ==========================
 // TOTAL STUDENTS
 // ==========================
 
 $countQuery = mysqli_query(
     $conn,
-    "SELECT COUNT(*) AS total FROM students"
+    "SELECT COUNT(*) AS total FROM students WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1)"
 );
-
-
-$total = mysqli_fetch_assoc($countQuery)['total'];
+$total = mysqli_fetch_assoc($countQuery)['total'] ?? 0;
 
 
 

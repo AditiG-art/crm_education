@@ -12,12 +12,10 @@ exit();
 }
 
 
-$result=mysqli_query($conn,"SELECT * FROM courses ORDER BY id DESC");
-
-
-$count=mysqli_query($conn,"SELECT COUNT(*) as total FROM courses");
-
-$total=mysqli_fetch_assoc($count)['total'];
+$userCollegeId = (int)($_SESSION['college_id'] ?? 1);
+$result = mysqli_query($conn, "SELECT * FROM courses WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1) ORDER BY id DESC");
+$count = mysqli_query($conn, "SELECT COUNT(*) as total FROM courses WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1)");
+$total = mysqli_fetch_assoc($count)['total'] ?? 0;
 
 ?>
 

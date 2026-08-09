@@ -5,32 +5,36 @@ if(!isset($_SESSION['user']) || $_SESSION['role'] != "admin") {
     header("Location:../login.php"); exit();
 }
 
+$userCollegeId = (int)($_SESSION['college_id'] ?? 1);
+
 /* ─ Stats ─────────────────────────────────────── */
-$studentCount  = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM students"))['t'] ?? 0;
-$teacherCount  = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM teachers"))['t'] ?? 0;
-$courseCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM courses"))['t']  ?? 0;
-$attendCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM attendance"))['t'] ?? 0;
-$resultCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM results"))['t']   ?? 0;
-$achCount      = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM achievements"))['t'] ?? 0;
+$studentCount  = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM students WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1)"))['t'] ?? 0;
+$teacherCount  = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM teachers WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1)"))['t'] ?? 0;
+$courseCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM courses WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1)"))['t']  ?? 0;
+$attendCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM attendance a JOIN students s ON a.student_id=s.id WHERE s.college_id = $userCollegeId OR (s.college_id IS NULL AND $userCollegeId = 1)"))['t'] ?? 0;
+$resultCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM results r JOIN students s ON r.student_id=s.id WHERE s.college_id = $userCollegeId OR (s.college_id IS NULL AND $userCollegeId = 1)"))['t']   ?? 0;
+$achCount      = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM achievements a JOIN students s ON a.student_id=s.id WHERE s.college_id = $userCollegeId OR (s.college_id IS NULL AND $userCollegeId = 1)"))['t'] ?? 0;
 
 /* ─ Attendance Breakdown ──────────────────────── */
-$presentCount  = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM attendance WHERE status='Present'"))['t'] ?? 0;
-$absentCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM attendance WHERE status='Absent' OR status='Late'"))['t'] ?? 0;
+$presentCount  = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM attendance a JOIN students s ON a.student_id=s.id WHERE (s.college_id = $userCollegeId OR (s.college_id IS NULL AND $userCollegeId = 1)) AND a.status='Present'"))['t'] ?? 0;
+$absentCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM attendance a JOIN students s ON a.student_id=s.id WHERE (s.college_id = $userCollegeId OR (s.college_id IS NULL AND $userCollegeId = 1)) AND (a.status='Absent' OR a.status='Late')"))['t'] ?? 0;
 $attendRate    = $attendCount > 0 ? round(($presentCount / $attendCount) * 100) : 0;
 
 /* ─ Subject-wise marks (for chart) ───────────── */
 $subjectMarks  = [];
-$smQuery = mysqli_query($conn,"SELECT subject, ROUND(AVG(marks),1) as avg_marks FROM results GROUP BY subject ORDER BY avg_marks DESC LIMIT 6");
-while($r = mysqli_fetch_assoc($smQuery)) {
-    $subjectMarks[] = $r;
+$smQuery = mysqli_query($conn,"SELECT r.subject, ROUND(AVG(r.marks),1) as avg_marks FROM results r JOIN students s ON r.student_id=s.id WHERE s.college_id = $userCollegeId OR (s.college_id IS NULL AND $userCollegeId = 1) GROUP BY r.subject ORDER BY avg_marks DESC LIMIT 6");
+if($smQuery) {
+    while($r = mysqli_fetch_assoc($smQuery)) {
+        $subjectMarks[] = $r;
+    }
 }
 
 /* ─ Gender Distribution ──────────────────────── */
-$maleCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM students WHERE gender='Male'"))['t'] ?? 0;
-$femaleCount = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM students WHERE gender='Female'"))['t'] ?? 0;
+$maleCount   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM students WHERE gender='Male' AND (college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1))"))['t'] ?? 0;
+$femaleCount = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) AS t FROM students WHERE gender='Female' AND (college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1))"))['t'] ?? 0;
 
 /* ─ Latest Students ──────────────────────────── */
-$latestStudents = mysqli_query($conn,"SELECT * FROM students ORDER BY id DESC LIMIT 5");
+$latestStudents = mysqli_query($conn,"SELECT * FROM students WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1) ORDER BY id DESC LIMIT 5");
 
 /* ─ Upcoming Exams ───────────────────────────── */
 $upcomingExams  = mysqli_query($conn,"SELECT * FROM marks_schedule WHERE exam_date >= CURDATE() ORDER BY exam_date ASC LIMIT 4");
@@ -40,22 +44,22 @@ $announcements  = mysqli_query($conn,"SELECT * FROM announcements ORDER BY creat
 
 /* ─ Activity Feed ────────────────────────────── */
 $activities = [];
-$rStud = mysqli_query($conn,"SELECT full_name, created_at FROM students ORDER BY id DESC LIMIT 3");
-while($s = mysqli_fetch_assoc($rStud)) {
-    $activities[] = ['icon'=>'fa-user-plus','color'=>'var(--success)','text'=>'New student enrolled: <strong>'.htmlspecialchars($s['full_name']).'</strong>','time'=>isset($s['created_at']) ? date('M d, H:i',strtotime($s['created_at'])) : 'Recently'];
+$rStud = mysqli_query($conn,"SELECT full_name, created_at FROM students WHERE college_id = $userCollegeId OR (college_id IS NULL AND $userCollegeId = 1) ORDER BY id DESC LIMIT 3");
+if($rStud) {
+    while($s = mysqli_fetch_assoc($rStud)) {
+        $activities[] = ['icon'=>'fa-user-plus','color'=>'var(--success)','text'=>'New student enrolled: <strong>'.htmlspecialchars($s['full_name']).'</strong>','time'=>isset($s['created_at']) ? date('M d, H:i',strtotime($s['created_at'])) : 'Recently'];
+    }
 }
-$rAtt = mysqli_query($conn,"SELECT attendance_date FROM attendance ORDER BY id DESC LIMIT 1");
-if($a = mysqli_fetch_assoc($rAtt)) $activities[] = ['icon'=>'fa-calendar-check','color'=>'var(--primary)','text'=>'Attendance marked for <strong>'.htmlspecialchars($a['attendance_date']).'</strong>','time'=>'Latest'];
-$rRes = mysqli_query($conn,"SELECT subject FROM results ORDER BY id DESC LIMIT 1");
-if($r = mysqli_fetch_assoc($rRes)) $activities[] = ['icon'=>'fa-square-poll-vertical','color'=>'var(--warning)','text'=>'Result published: <strong>'.htmlspecialchars($r['subject']).'</strong>','time'=>'Latest'];
-$rAch = mysqli_query($conn,"SELECT a.title, s.full_name FROM achievements a JOIN students s ON a.student_id=s.id ORDER BY a.id DESC LIMIT 1");
-if($r = mysqli_fetch_assoc($rAch)) $activities[] = ['icon'=>'fa-trophy','color'=>'#B45309','text'=>'<strong>'.htmlspecialchars($r['full_name']).'</strong> earned: '.htmlspecialchars($r['title']),'time'=>'Latest'];
+$rAtt = mysqli_query($conn,"SELECT a.attendance_date FROM attendance a JOIN students s ON a.student_id=s.id WHERE s.college_id = $userCollegeId OR (s.college_id IS NULL AND $userCollegeId = 1) ORDER BY a.id DESC LIMIT 1");
+if($rAtt && $a = mysqli_fetch_assoc($rAtt)) $activities[] = ['icon'=>'fa-calendar-check','color'=>'var(--primary)','text'=>'Attendance marked for <strong>'.htmlspecialchars($a['attendance_date']).'</strong>','time'=>'Latest'];
+$rRes = mysqli_query($conn,"SELECT r.subject FROM results r JOIN students s ON r.student_id=s.id WHERE s.college_id = $userCollegeId OR (s.college_id IS NULL AND $userCollegeId = 1) ORDER BY r.id DESC LIMIT 1");
+if($rRes && $r = mysqli_fetch_assoc($rRes)) $activities[] = ['icon'=>'fa-square-poll-vertical','color'=>'var(--warning)','text'=>'Result published: <strong>'.htmlspecialchars($r['subject']).'</strong>','time'=>'Latest'];
 if(empty($activities)) {
-    $activities[] = ['icon'=>'fa-circle-check','color'=>'var(--success)','text'=>'CRM System initialized and ready','time'=>'Just now'];
+    $activities[] = ['icon'=>'fa-circle-check','color'=>'var(--success)','text'=>'Campus CRM System initialized and ready','time'=>'Just now'];
 }
 
 /* ─ Top Performers (by avg marks) ────────────── */
-$topStudents = mysqli_query($conn,"SELECT s.full_name, s.course, ROUND(AVG(r.marks),1) as avg FROM results r JOIN students s ON r.student_id=s.id GROUP BY r.student_id ORDER BY avg DESC LIMIT 5");
+$topStudents = mysqli_query($conn,"SELECT s.full_name, s.course, ROUND(AVG(r.marks),1) as avg FROM results r JOIN students s ON r.student_id=s.id WHERE s.college_id = $userCollegeId OR (s.college_id IS NULL AND $userCollegeId = 1) GROUP BY r.student_id ORDER BY avg DESC LIMIT 5");
 ?>
 <!DOCTYPE html>
 <html lang="en">

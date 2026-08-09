@@ -229,33 +229,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 :root {
     --primary: #2563EB;
     --primary-dark: #1E40AF;
+    --body-bg: #0B1120;
+    --card-bg: #1E293B;
+    --input-bg: #0F172A;
+    --text-dark: #F8FAFC;
+    --text-muted: #94A3B8;
+    --border-color: rgba(255, 255, 255, 0.12);
+    --radius: 20px;
+}
+
+[data-theme="light"] {
     --body-bg: #F0F4FF;
     --card-bg: #FFFFFF;
+    --input-bg: #F8FAFC;
     --text-dark: #0F172A;
     --text-muted: #64748B;
     --border-color: #E2E8F0;
-    --radius: 20px;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
 
 body {
     background: var(--body-bg);
+    color: var(--text-dark);
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 40px 20px;
+    padding: 50px 20px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Ambient Glow Backgrounds */
+.glow-ambient {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(140px);
+    pointer-events: none;
+    z-index: 0;
+}
+.glow-1 {
+    width: 450px; height: 450px;
+    background: rgba(37, 99, 235, 0.22);
+    top: -100px; left: -100px;
+}
+.glow-2 {
+    width: 400px; height: 400px;
+    background: rgba(139, 92, 246, 0.18);
+    bottom: -100px; right: -100px;
+}
+
+/* Theme Switcher Button */
+.theme-toggle-wrapper {
+    position: fixed;
+    top: 24px; right: 24px;
+    z-index: 100;
+}
+.theme-toggle-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-dark);
+    font-weight: 600;
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 50px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+}
+.theme-toggle-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary);
 }
 
 .form-wrapper {
-    max-width: 620px;
+    max-width: 640px;
     width: 100%;
-    background: white;
+    background: var(--card-bg);
     border-radius: 28px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
     overflow: hidden;
     border: 1px solid var(--border-color);
+    position: relative;
+    z-index: 1;
 }
 
 .form-header {
@@ -330,17 +392,16 @@ body {
     width: 100%;
     padding: 14px 18px 14px 50px;
     border-radius: 14px;
-    border: 1px solid #CBD5E1;
+    border: 1px solid var(--border-color);
     font-size: 14.5px;
-    background: #F8FAFC;
+    background: var(--input-bg);
     color: var(--text-dark);
     outline: none;
     transition: 0.3s;
 }
 .form-control-crm:focus {
     border-color: var(--primary);
-    background: white;
-    box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.2);
 }
 
 .form-grid-2 {
@@ -387,7 +448,19 @@ body {
 }
 </style>
 </head>
-<body>
+<body data-theme="dark">
+
+<!-- Ambient Glow Backgrounds -->
+<div class="glow-ambient glow-1"></div>
+<div class="glow-ambient glow-2"></div>
+
+<!-- Theme Switcher Button -->
+<div class="theme-toggle-wrapper">
+    <button type="button" id="themeToggleBtn" class="theme-toggle-btn">
+        <i class="fa-solid fa-sun text-warning" id="themeIcon"></i>
+        <span id="themeText">Light Mode</span>
+    </button>
+</div>
 
 <div class="form-wrapper">
 
@@ -527,6 +600,9 @@ body {
 const collegeSelect     = document.getElementById('collegeSelect');
 const customCollegeBox  = document.getElementById('customCollegeBox');
 const customCollegeInput= document.getElementById('customCollegeInput');
+const themeToggleBtn    = document.getElementById('themeToggleBtn');
+const themeIcon         = document.getElementById('themeIcon');
+const themeText         = document.getElementById('themeText');
 
 if (collegeSelect) {
     collegeSelect.addEventListener('change', () => {
@@ -537,6 +613,30 @@ if (collegeSelect) {
             customCollegeBox.style.display = 'none';
             if (customCollegeInput) customCollegeInput.required = false;
         }
+    });
+}
+
+// Check saved theme from localStorage
+const savedTheme = localStorage.getItem('smart_campus_theme') || 'dark';
+setTheme(savedTheme);
+
+function setTheme(theme) {
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('smart_campus_theme', theme);
+    if(theme === 'dark') {
+        themeIcon.className = 'fa-solid fa-sun text-warning';
+        themeText.innerText = 'Light Mode';
+    } else {
+        themeIcon.className = 'fa-solid fa-moon text-primary';
+        themeText.innerText = 'Dark Mode';
+    }
+}
+
+if(themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+        const currentTheme = document.body.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        setTheme(newTheme);
     });
 }
 </script>

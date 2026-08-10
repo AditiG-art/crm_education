@@ -1331,3 +1331,21 @@ img { max-width: 100%; }
   border-top: 1px solid #E2E8F0;
   text-align: right;
 }
+
+/* Desktop Sidebar Collapse */
+@media (min-width: 993px) {
+  body.sidebar-collapsed .sidebar {
+    transform: translateX(-100%) !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+  body.sidebar-collapsed .main {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+  body.sidebar-collapsed .topbar {
+    left: 0 !important;
+    width: 100% !important;
+  }
+}

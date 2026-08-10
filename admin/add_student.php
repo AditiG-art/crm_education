@@ -76,7 +76,7 @@ if(isset($_POST['add_student'])) {
             if($uChk->get_result()->num_rows == 0) {
                 $hashedPass = password_hash($password, PASSWORD_DEFAULT);
                 $uIns = $conn->prepare("INSERT INTO users (college_id, college_name, first_name, last_name, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'student', 'Active')");
-                $uIns->bind_param("isssssss", $collegeId, $collegeName, $firstName, $lastName, $name, $email, $hashedPass);
+                $uIns->bind_param("issssss", $collegeId, $collegeName, $firstName, $lastName, $name, $email, $hashedPass);
                 $uIns->execute();
             }
 

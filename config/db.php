@@ -5,6 +5,8 @@
  * Supports Railway (MYSQL_URL / env vars) + local XAMPP (fallback)
  */
 
+mysqli_report(MYSQLI_REPORT_OFF);
+
 $host     = getenv('MYSQLHOST')     ?: getenv('MYSQL_HOST')     ?: getenv('DB_HOST')     ?: 'localhost';
 $user     = getenv('MYSQLUSER')     ?: getenv('MYSQL_USER')     ?: getenv('DB_USER')     ?: 'root';
 $password = getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD') ?: getenv('MYSQL_ROOT_PASSWORD') ?: getenv('DB_PASSWORD') ?: '';
@@ -26,16 +28,29 @@ if($urlStr) {
 
 $isRailway = (bool)(getenv('RAILWAY_ENVIRONMENT') || getenv('MYSQLHOST') || getenv('MYSQL_HOST') || getenv('MYSQL_URL'));
 
-// Connect directly to target database
-$conn = @mysqli_connect($host, $user, $password, $database, $port);
+// Determine ports to attempt for local XAMPP/MySQL connection
+$portsToTry = [$port];
+if (!$isRailway && ($host === 'localhost' || $host === '127.0.0.1')) {
+    if ($port === 3306 && !in_array(3307, $portsToTry)) {
+        $portsToTry[] = 3307;
+    }
+}
 
-
-// Local XAMPP fallback: if target DB does not exist yet, connect to server & create DB
-if(!$conn && !$isRailway) {
-    $conn = @mysqli_connect($host, $user, $password, '', $port);
-    if($conn) {
-        mysqli_query($conn, "CREATE DATABASE IF NOT EXISTS `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-        mysqli_select_db($conn, $database);
+$conn = false;
+foreach ($portsToTry as $tryPort) {
+    $conn = @mysqli_connect($host, $user, $password, $database, $tryPort);
+    if (!$conn && !$isRailway) {
+        $serverConn = @mysqli_connect($host, $user, $password, '', $tryPort);
+        if ($serverConn) {
+            mysqli_query($serverConn, "CREATE DATABASE IF NOT EXISTS `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            mysqli_select_db($serverConn, $database);
+            $conn = $serverConn;
+            $port = $tryPort;
+            break;
+        }
+    } elseif ($conn) {
+        $port = $tryPort;
+        break;
     }
 }
 

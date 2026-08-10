@@ -39,11 +39,15 @@ function initMobileSidebar() {
         if (toggleBtn) {
             e.stopPropagation();
             e.preventDefault();
-            const anyOpen = document.querySelector('.sidebar.open, #mainSidebar.open');
-            if (anyOpen) {
-                closeSidebar();
+            if (window.innerWidth <= 992) {
+                const anyOpen = document.querySelector('.sidebar.open, #mainSidebar.open');
+                if (anyOpen) {
+                    closeSidebar();
+                } else {
+                    openSidebar();
+                }
             } else {
-                openSidebar();
+                document.body.classList.toggle('sidebar-collapsed');
             }
         } else if (closeBtn) {
             closeSidebar();

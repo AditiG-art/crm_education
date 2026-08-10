@@ -190,7 +190,7 @@ $examTypeIcons = [
             <button class="crm-modal-close" onclick="document.getElementById('addExamModal').classList.remove('open')">✕</button>
         </div>
         <div class="crm-modal-body">
-            <form id="addExamForm">
+            <form id="addExamForm" onsubmit="event.preventDefault(); submitExam();">
                 <div class="form-group">
                     <label class="form-label">Subject Name</label>
                     <input type="text" class="form-control-crm" name="subject" placeholder="e.g. Data Structures" required>
@@ -226,20 +226,33 @@ $examTypeIcons = [
             </form>
         </div>
         <div class="crm-modal-footer">
-            <button class="btn-crm-print" onclick="document.getElementById('addExamModal').classList.remove('open')">Cancel</button>
-            <button class="btn-crm-primary" onclick="submitExam()"><i class="fa-solid fa-save"></i> Save</button>
+            <button type="button" class="btn-crm-print" onclick="document.getElementById('addExamModal').classList.remove('open')">Cancel</button>
+            <button type="button" class="btn-crm-primary" onclick="submitExam()"><i class="fa-solid fa-save"></i> Save</button>
         </div>
     </div>
 </div>
 <div id="toastContainer"></div>
 <script>
 function submitExam() {
-    const data = new FormData(document.getElementById('addExamForm'));
+    const form = document.getElementById('addExamForm');
+    if(!form.checkValidity()){ form.reportValidity(); return; }
+    const btn = document.querySelector("#addExamModal .btn-crm-primary");
+    if(btn.disabled) return;
+    btn.disabled = true;
+    const data = new FormData(form);
     data.append('action','add');
-    fetch('marks_schedule.php',{method:'POST',body:data}).then(r=>r.json()).then(res=>{
-        if(res.success){showToast('Exam scheduled!','success');setTimeout(()=>location.reload(),800);}
-        else showToast('Failed to save','error');
-    });
+    fetch('marks_schedule.php',{method:'POST',body:data})
+      .then(r=>r.json())
+      .then(res=>{
+          if(res.success){
+              showToast('Exam scheduled!','success');
+              setTimeout(()=>location.reload(),600);
+          } else {
+              showToast('Failed to save','error');
+              btn.disabled = false;
+          }
+      })
+      .catch(()=>{ if(btn) btn.disabled = false; });
 }
 function deleteExam(id) {
     if(!confirm('Remove this exam from the schedule?')) return;

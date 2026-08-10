@@ -58,7 +58,7 @@ if(isset($_POST['add_teacher'])) {
             if($userCheck->get_result()->num_rows == 0) {
                 $defaultPassword = password_hash("teacher123", PASSWORD_DEFAULT);
                 $userInsert = $conn->prepare("INSERT INTO users (college_id, college_name, first_name, last_name, full_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'teacher', 'Active')");
-                $userInsert->bind_param("isssssss", $collegeId, $collegeName, $firstName, $lastName, $name, $email, $defaultPassword);
+                $userInsert->bind_param("issssss", $collegeId, $collegeName, $firstName, $lastName, $name, $email, $defaultPassword);
                 $userInsert->execute();
             }
 
